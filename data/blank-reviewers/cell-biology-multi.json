@@ -1,0 +1,40 @@
+{
+  "title": "Cell Biology Review",
+  "topics": [
+    {
+      "id": "cell-structure",
+      "title": "Cell Structure",
+      "text": "The {{blank-1}} is composed of a {{blank-2}} that regulates what enters and exits the cell. Within the cell, the {{blank-3}} contains the genetic material. The {{blank-4}} are responsible for producing ATP through cellular respiration. {{blank-5}} synthesize proteins by translating mRNA.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "cell membrane", "alternatives": ["plasma membrane"] },
+        { "id": "blank-2", "term": "phospholipid bilayer", "alternatives": ["lipid bilayer"] },
+        { "id": "blank-3", "term": "nucleus", "alternatives": [] },
+        { "id": "blank-4", "term": "mitochondria", "alternatives": ["mitochondrion"] },
+        { "id": "blank-5", "term": "Ribosomes", "alternatives": ["ribosome"] }
+      ]
+    },
+    {
+      "id": "cell-division",
+      "title": "Cell Division",
+      "text": "Cell division occurs in two stages: {{blank-1}} and {{blank-2}}. During {{blank-1}}, DNA replicates and the cell grows. In {{blank-3}}, the cell divides into two daughter cells. {{blank-4}} are thread-like structures that contain DNA. Errors in cell division can lead to {{blank-5}}.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "mitosis", "alternatives": [] },
+        { "id": "blank-2", "term": "cytokinesis", "alternatives": [] },
+        { "id": "blank-3", "term": "cytokinesis", "alternatives": [] },
+        { "id": "blank-4", "term": "chromosomes", "alternatives": [] },
+        { "id": "blank-5", "term": "cancer", "alternatives": ["tumors", "mutations"] }
+      ]
+    },
+    {
+      "id": "energy-processes",
+      "title": "Energy Processes",
+      "text": "{{blank-1}} is the process by which plants convert sunlight into chemical energy. Cellular respiration occurs in three stages: glycolysis, the {{blank-2}} cycle, and the electron transport chain. {{blank-3}} is produced during cellular respiration. {{blank-4}} is the energy currency of the cell.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "Photosynthesis", "alternatives": [] },
+        { "id": "blank-2", "term": "Krebs", "alternatives": ["citric acid"] },
+        { "id": "blank-3", "term": "ATP", "alternatives": [] },
+        { "id": "blank-4", "term": "ATP", "alternatives": ["adenosine triphosphate"] }
+      ]
+    }
+  ]
+}

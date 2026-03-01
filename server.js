@@ -414,6 +414,7 @@ io.on('connection', (socket) => {
         hostToken,
         groups: new Map(),
         content: null,
+        currentTopicId: null,  // Track current topic for multi-topic content
         wheelResults: [],
         status: 'waiting',
         createdAt: Date.now(),
@@ -570,10 +571,49 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Host switches topic
+  socket.on('switch-topic', (data, callback) => {
+    try {
+      const { roomCode, hostToken, topicId } = data;
+      const lobby = activeLobbies.get(roomCode);
+
+      if (!lobby) {
+        return callback({ error: 'Lobby not found' });
+      }
+
+      if (lobby.hostToken !== hostToken) {
+        return callback({ error: 'Unauthorized' });
+      }
+
+      // Validate topic exists
+      if (lobby.content && lobby.content.topics) {
+        const topicExists = lobby.content.topics.some(t => t.id === topicId);
+        if (!topicExists) {
+          return callback({ error: 'Topic not found' });
+        }
+      }
+
+      lobby.currentTopicId = topicId;
+      lobby.lastActivity = Date.now();
+
+      // Broadcast topic change to all groups
+      io.to(roomCode).emit('topic-changed', {
+        topicId,
+        loadedBy: 'host'
+      });
+
+      callback({ success: true });
+      logger.info('Topic switched', { roomCode, topicId });
+    } catch (error) {
+      logger.error('Error switching topic', { error: error.message, roomCode });
+      callback({ error: error.message });
+    }
+  });
+
   // Group submits an answer
   socket.on('submit-answer', (data, callback) => {
     try {
-      const { roomCode, groupName, blankId, answer } = data;
+      const { roomCode, groupName, blankId, answer, topicId } = data;
       const lobby = activeLobbies.get(roomCode);
 
       if (!lobby) {
@@ -585,9 +625,12 @@ io.on('connection', (socket) => {
         return callback({ error: 'Group not found' });
       }
 
-      // Store answer
-      group.answers.set(blankId, {
+      // Store answer with topic context (for multi-topic support)
+      const answerKey = topicId ? `${topicId}:${blankId}` : blankId;
+      group.answers.set(answerKey, {
         answer: String(answer),
+        topicId: topicId || null,
+        blankId,
         submittedAt: Date.now()
       });
 
@@ -600,6 +643,7 @@ io.on('connection', (socket) => {
           groupName,
           blankId,
           answer: String(answer),
+          topicId: topicId || null,
           totalAnswers: group.answers.size
         });
       }
@@ -611,18 +655,19 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Host reveals all answers
+  // Host reveals answers (per topic or all)
   socket.on('reveal-answers', (data) => {
     try {
-      const { roomCode, hostToken, answers } = data;
+      const { roomCode, hostToken, answers, topicId } = data;
       const lobby = activeLobbies.get(roomCode);
 
       if (!lobby || lobby.hostToken !== hostToken) return;
 
       lobby.lastActivity = Date.now();
 
-      // Broadcast correct answers to all groups
-      io.to(roomCode).emit('answers-revealed', { answers });
+      // Broadcast correct answers to all groups (include topicId for multi-topic)
+      io.to(roomCode).emit('answers-revealed', { answers, topicId });
+      logger.info('Answers revealed', { roomCode, topicId });
     } catch (error) {
       logger.error('Error revealing answers', { error: error.message, roomCode });
     }
