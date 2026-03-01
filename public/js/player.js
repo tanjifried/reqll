@@ -330,27 +330,24 @@ class Player {
         const keyTerms = topic.keyTerms || [];
         let html = topic.text || '';
 
-        // Replace blanks with inputs
+        // Replace blanks with inputs (keep on single line to avoid whitespace issues)
         keyTerms.forEach(term => {
-            const input = `<input type="text" 
-                class="blank-input" 
-                data-blank-id="${term.id}" 
-                data-topic-id="${topic.id}"
-                placeholder="?" 
-                autocomplete="off">`;
-            html = html.replace(`{{${term.id}}}`, input);
+            const inputTag = `<input type="text" class="blank-input" data-blank-id="${term.id}" data-topic-id="${topic.id}" placeholder="?" autocomplete="off">`;
+            html = html.split(`{{${term.id}}}`).join(inputTag);
         });
 
         // Format text - split by newlines and wrap in paragraphs
-        const formattedHtml = html
-            .split('\n')
-            .filter(line => line.trim())
-            .map(line => `<p>${line.trim()}</p>`)
-            .join('');
-
+        const lines = html.split('\n').filter(line => line.trim());
+        
         const textEl = document.createElement('div');
         textEl.className = 'doc-content';
-        textEl.innerHTML = formattedHtml;
+        
+        lines.forEach(line => {
+            const p = document.createElement('p');
+            p.innerHTML = line.trim();
+            textEl.appendChild(p);
+        });
+        
         contentArea.appendChild(textEl);
 
         // Restore saved answers for this topic
