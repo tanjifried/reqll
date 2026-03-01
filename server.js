@@ -382,13 +382,6 @@ app.delete('/api/logs', (req, res) => {
 io.on('connection', (socket) => {
       logger.info('Client connected', { socketId: socket.id });
 
-  // Heartbeat - client can send ping to keep connection alive
-  socket.on('ping-server', (timestamp, callback) => {
-    if (callback) {
-      callback({ serverTime: Date.now(), received: timestamp });
-    }
-  });
-
   // Host creates a lobby
   socket.on('create-lobby', (data, callback) => {
     try {

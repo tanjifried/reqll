@@ -167,9 +167,9 @@
                                 <div class="wheel-controls">
                                     <button id="spin-all-btn" class="btn btn-accent">🎲 Spin All</button>
                                     
-                                    <label class="toggle">
+                                    <label class="toggle" title="When enabled, dependent wheels will automatically spin after the parent wheel">
                                         <input type="checkbox" id="dependent-mode" checked>
-                                        <span>Dependent Mode</span>
+                                        <span>Auto-spin Dependent</span>
                                     </label>
                                 </div>
                             </div>
@@ -196,9 +196,13 @@
                     <div class="form-group">
                         <label>Wheel Type</label>
                         <select id="wheel-type">
-                            <option value="independent">Independent</option>
-                            <option value="dependent">Dependent</option>
+                            <option value="independent">Independent (Standalone)</option>
+                            <option value="dependent">Dependent (Connected to another wheel)</option>
                         </select>
+                        <p class="hint">
+                            <strong>Independent:</strong> A simple wheel that spins on its own<br>
+                            <strong>Dependent:</strong> A wheel that updates based on another wheel's result (e.g., select group first, then member)
+                        </p>
                     </div>
 
                     <div id="depends-on-group" class="form-group hidden">
@@ -208,6 +212,7 @@
 
                     <div class="form-group">
                         <label>Items (one per line)</label>
+                        <p class="hint">Enter each item on a new line. These will be the options when the wheel spins.</p>
                         <textarea id="wheel-items" rows="8" placeholder="Group A
 Group B
 Group C"></textarea>
@@ -215,7 +220,13 @@ Group C"></textarea>
 
                     <div id="dependent-data" class="form-group hidden">
                         <label>Dependent Data</label>
-                        <p class="hint">Format: GroupName: Member1, Member2, Member3</p>
+                        <p class="hint">
+                            <strong>Format:</strong> GroupName: Member1, Member2, Member3<br>
+                            <strong>Example:</strong><br>
+                            Group A: Alice, Bob, Charlie<br>
+                            Group B: David, Eve, Frank<br><br>
+                            When you spin the parent wheel and get "Group A", this wheel will update to show only Alice, Bob, Charlie.
+                        </p>
                         <textarea id="wheel-data" rows="6" placeholder="Group A: Alice, Bob, Charlie
 Group B: David, Eve, Frank"></textarea>
                     </div>

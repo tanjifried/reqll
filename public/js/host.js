@@ -407,6 +407,11 @@ class Host {
     broadcastContent() {
         if (!this.currentContent) return;
 
+        if (!this.socket.connected) {
+            alert('Connection lost. Please refresh the page.');
+            return;
+        }
+
         this.socket.emit('load-content', {
             roomCode: this.roomCode,
             hostToken: this.hostToken,
@@ -448,6 +453,11 @@ class Host {
 
     revealAnswers() {
         if (!this.currentContent) return;
+
+        if (!this.socket.connected) {
+            alert('Connection lost. Please refresh the page.');
+            return;
+        }
 
         const answers = this.currentContent.keyTerms.map(term => ({
             blankId: term.id,
