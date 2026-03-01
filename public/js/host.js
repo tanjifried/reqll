@@ -232,6 +232,7 @@ class Host {
     }
 
     handleGroupJoined(data) {
+        this.groups.clear();
         data.groups.forEach(group => {
             this.groups.set(group.name, group);
         });
@@ -241,6 +242,7 @@ class Host {
     }
 
     handleGroupLeft(data) {
+        this.groups.clear();
         data.groups.forEach(group => {
             this.groups.set(group.name, group);
         });

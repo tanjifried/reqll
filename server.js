@@ -60,6 +60,17 @@ function saveWheelConfigs() {
   }
 }
 
+// HTML escape function for preventing XSS
+function escapeHtml(unsafe) {
+  if (typeof unsafe !== 'string') return unsafe;
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Generate unique room code
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -426,8 +437,14 @@ io.on('connection', (socket) => {
         return callback({ error: 'Group name must be 20 characters or less' });
       }
 
-      // Sanitize group name
-      const sanitizedGroupName = groupName.trim().replace(/[<>\"'&]/g, '');
+      // Validate group name (allowed characters: alphanumeric, spaces, hyphens, underscores)
+      const validNameRegex = /^[a-zA-Z0-9\s\-_]+$/;
+      if (!validNameRegex.test(groupName.trim())) {
+        return callback({ error: 'Group name can only contain letters, numbers, spaces, hyphens, and underscores' });
+      }
+
+      // Sanitize group name (escape HTML but keep the characters)
+      const sanitizedGroupName = escapeHtml(groupName.trim());
 
       if (lobby.groups.size >= MAX_GROUPS_PER_LOBBY) {
         return callback({ error: 'Lobby is full' });

@@ -87,10 +87,6 @@ class Player {
             this.showWheelResult(data.result);
         });
 
-        this.socket.on('wheels-updated', (data) => {
-            console.log('Wheels updated:', data.wheels);
-        });
-
         this.socket.on('lobby-closed', () => {
             alert('The lobby has been closed.');
             window.location.reload();
@@ -262,33 +258,27 @@ class Player {
             this.roomCode = sessionStorage.getItem('roomCode');
             this.groupName = sessionStorage.getItem('groupName');
         }
-        
-        if (this.socket && !this.socket.connected) {
-            this.socket.connect();
+
+        if (this.roomCode && this.groupName) {
+            this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
+                if (response.error) {
+                    this.showError(response.error);
+                    this.switchScreen('join');
+                    return;
+                }
+
+                document.getElementById('player-group-name').textContent = this.groupName;
+                document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
+
+                if (response.lobbyStatus === 'active' && response.content) {
+                    this.loadContent(response.content);
+                } else {
+                    this.switchScreen('waiting');
+                }
+            });
+        } else {
+            this.switchScreen('join');
         }
-        
-        setTimeout(() => {
-            if (this.roomCode && this.groupName) {
-                this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
-                    if (response.error) {
-                        this.showError(response.error);
-                        this.switchScreen('join');
-                        return;
-                    }
-
-                    document.getElementById('player-group-name').textContent = this.groupName;
-                    document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
-
-                    if (response.lobbyStatus === 'active' && response.content) {
-                        this.loadContent(response.content);
-                    } else {
-                        this.switchScreen('waiting');
-                    }
-                });
-            } else {
-                this.switchScreen('join');
-            }
-        }, 500);
     }
 }
 
