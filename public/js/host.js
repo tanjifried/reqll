@@ -10,6 +10,9 @@ class Host {
         this.hostToken = null;
         this.groups = new Map();
         this.currentContent = null;
+        this.topics = []; // Array of topics for multi-topic content
+        this.currentTopicIndex = 0; // Current active topic
+        this.selectedGroupName = null; // Selected group to view inputs
         this.wheels = new Map();
         this.wheelData = null;
         this.dependentMode = true;
@@ -145,6 +148,15 @@ class Host {
             this.revealAnswers();
         });
 
+        // Topic navigation
+        document.getElementById('prev-topic-btn').addEventListener('click', () => {
+            this.switchTopic(this.currentTopicIndex - 1);
+        });
+
+        document.getElementById('next-topic-btn').addEventListener('click', () => {
+            this.switchTopic(this.currentTopicIndex + 1);
+        });
+
         // Wheels tab
         document.getElementById('new-wheel-btn').addEventListener('click', () => {
             this.openWheelModal();
@@ -239,6 +251,9 @@ class Host {
 
         this.updateGroupsList();
         document.getElementById('group-count').textContent = data.groupCount;
+        
+        // Update group tabs and inputs
+        this.updateGroupTabs();
     }
 
     handleGroupLeft(data) {
@@ -249,6 +264,12 @@ class Host {
 
         this.updateGroupsList();
         document.getElementById('group-count').textContent = data.groupCount;
+        
+        // Update group tabs and inputs
+        if (this.selectedGroupName && !this.groups.has(this.selectedGroupName)) {
+            this.selectedGroupName = null;
+        }
+        this.updateGroupTabs();
     }
 
     updateGroupsList() {
@@ -278,7 +299,7 @@ class Host {
     }
 
     handleAnswerSubmitted(data) {
-        const { groupName, blankId, answer, totalAnswers } = data;
+        const { groupName, blankId, answer, totalAnswers, topicId } = data;
         
         // Store answer
         if (!this.groupAnswers.has(groupName)) {
@@ -290,8 +311,15 @@ class Host {
         const groupCard = document.querySelector(`.group-card[data-group="${groupName}"]`);
         if (groupCard) {
             const stats = groupCard.querySelector('.group-answers');
-            const totalBlanks = this.currentContent?.keyTerms?.length || 0;
+            // Get total blanks from current topic
+            const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+            const totalBlanks = currentTopic?.keyTerms?.length || 0;
             stats.textContent = `${totalAnswers}/${totalBlanks} answered`;
+        }
+
+        // Update group inputs if visible
+        if (this.selectedGroupName === groupName) {
+            this.updateGroupInputs();
         }
     }
 
@@ -310,6 +338,16 @@ class Host {
                 }
 
                 this.currentContent = content;
+                
+                // Set up topics - support both multi-topic and single-topic formats
+                if (content.topics && Array.isArray(content.topics)) {
+                    this.topics = content.topics;
+                } else {
+                    // Single topic - wrap in array for consistency
+                    this.topics = [content];
+                }
+                this.currentTopicIndex = 0;
+                
                 this.showContentPreview(content);
                 document.getElementById('broadcast-content-btn').disabled = false;
             } catch (error) {
@@ -329,6 +367,16 @@ class Host {
             const content = await response.json();
             
             this.currentContent = content;
+            
+            // Set up topics - support both multi-topic and single-topic formats
+            if (content.topics && Array.isArray(content.topics)) {
+                this.topics = content.topics;
+            } else {
+                // Single topic - wrap in array for consistency
+                this.topics = [content];
+            }
+            this.currentTopicIndex = 0;
+            
             this.showContentPreview(content);
             document.getElementById('broadcast-content-btn').disabled = false;
         } catch (error) {
@@ -390,18 +438,161 @@ class Host {
     showContentPreview(content) {
         const container = document.getElementById('content-preview');
         
-        let html = content.text || '';
-        content.keyTerms?.forEach(term => {
-            html = html.replace(`{{${term.id}}}`, `<span class="blank">[${term.term}]</span>`);
+        // Get current topic - either from multi-topic or single topic format
+        let currentTopic;
+        if (this.topics && this.topics.length > 0) {
+            currentTopic = this.topics[this.currentTopicIndex];
+        } else {
+            currentTopic = content;
+        }
+        
+        let html = currentTopic.text || '';
+        currentTopic.keyTerms?.forEach(term => {
+            html = html.replace(`{{${term.id}}}`, `<span class="blank">[answer]</span>`);
         });
 
+        const totalTopics = this.topics?.length || 1;
+        
         container.innerHTML = `
             <div class="content-header">
-                <h3>${content.title}</h3>
-                <span class="blank-count">${content.keyTerms?.length || 0} blanks</span>
+                <h3>${currentTopic.title || content.title}</h3>
+                <span class="topic-info">Topic ${this.currentTopicIndex + 1} of ${totalTopics}</span>
+                <span class="blank-count">${currentTopic.keyTerms?.length || 0} blanks</span>
             </div>
             <div class="content-body">${html}</div>
         `;
+
+        // Show/hide topic tabs based on content type
+        this.updateTopicTabs();
+
+        // Show/hide group tabs and inputs
+        this.updateGroupTabs();
+
+        // Update navigation buttons
+        this.updateTopicNavButtons();
+    }
+
+    updateTopicTabs() {
+        const tabsContainer = document.getElementById('admin-topic-tabs');
+        if (!tabsContainer) return;
+
+        if (this.topics && this.topics.length > 1) {
+            tabsContainer.classList.remove('hidden');
+            tabsContainer.innerHTML = this.topics.map((topic, index) => `
+                <button class="tab ${index === this.currentTopicIndex ? 'active' : ''}" 
+                        data-topic-index="${index}">
+                    ${topic.title || `Topic ${index + 1}`}
+                </button>
+            `).join('');
+
+            // Add click handlers
+            tabsContainer.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    this.switchTopic(parseInt(tab.dataset.topicIndex));
+                });
+            });
+        } else {
+            tabsContainer.classList.add('hidden');
+        }
+    }
+
+    switchTopic(index) {
+        if (index < 0 || index >= this.topics.length) return;
+        
+        this.currentTopicIndex = index;
+        this.showContentPreview(this.currentContent);
+        this.updateGroupInputs();
+    }
+
+    updateTopicNavButtons() {
+        const prevBtn = document.getElementById('prev-topic-btn');
+        const nextBtn = document.getElementById('next-topic-btn');
+        
+        if (prevBtn && nextBtn) {
+            prevBtn.disabled = this.currentTopicIndex <= 0;
+            nextBtn.disabled = this.currentTopicIndex >= this.topics.length - 1;
+        }
+    }
+
+    updateGroupTabs() {
+        const groupTabsContainer = document.getElementById('group-tabs');
+        const groupInputsContainer = document.getElementById('group-inputs');
+        
+        if (!groupTabsContainer || !groupInputsContainer) return;
+
+        const groups = Array.from(this.groups.values());
+        
+        if (groups.length > 0 && this.currentContent) {
+            groupTabsContainer.classList.remove('hidden');
+            groupInputsContainer.classList.remove('hidden');
+            
+            // Auto-select first group if none selected
+            if (!this.selectedGroupName) {
+                this.selectedGroupName = groups[0].name;
+            }
+
+            const tabsList = document.getElementById('group-tabs-list');
+            tabsList.innerHTML = groups.map(group => `
+                <button class="tab ${group.name === this.selectedGroupName ? 'active' : ''}" 
+                        data-group-name="${group.name}">
+                    ${group.name}
+                </button>
+            `).join('');
+
+            // Add click handlers
+            tabsList.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    this.selectedGroupName = tab.dataset.groupName;
+                    this.updateGroupTabs();
+                    this.updateGroupInputs();
+                });
+            });
+
+            this.updateGroupInputs();
+        } else {
+            groupTabsContainer.classList.add('hidden');
+            groupInputsContainer.classList.add('hidden');
+        }
+    }
+
+    updateGroupInputs() {
+        const inputsList = document.getElementById('group-inputs-list');
+        if (!inputsList) return;
+
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        if (!currentTopic || !this.selectedGroupName) {
+            inputsList.innerHTML = '<p class="empty-state">Select a group to view inputs</p>';
+            return;
+        }
+
+        const group = this.groups.get(this.selectedGroupName);
+        const groupAnswersMap = this.groupAnswers.get(this.selectedGroupName);
+        
+        if (!group) {
+            inputsList.innerHTML = '<p class="empty-state">Group not found</p>';
+            return;
+        }
+
+        const keyTerms = currentTopic.keyTerms || [];
+        
+        let html = `<div class="input-card">
+            <div class="group-name">${group.name}</div>`;
+        
+        keyTerms.forEach(term => {
+            const answer = groupAnswersMap?.get(term.id);
+            const isCorrect = answer && (answer.toLowerCase() === term.term.toLowerCase() || 
+                (term.alternatives && term.alternatives.some(a => a.toLowerCase() === answer.toLowerCase())));
+            
+            html += `
+                <div class="input-item">
+                    <span class="blank-label">${term.id}:</span>
+                    <span class="user-input ${answer ? (isCorrect ? 'correct' : 'incorrect') : ''}">${answer || '—'}</span>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        inputsList.innerHTML = html;
     }
 
     broadcastContent() {
@@ -438,7 +629,9 @@ class Host {
 
     updateProgressList() {
         const container = document.getElementById('progress-list');
-        const totalBlanks = this.currentContent?.keyTerms?.length || 0;
+        // Get total blanks from current topic
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        const totalBlanks = currentTopic?.keyTerms?.length || 0;
 
         container.innerHTML = Array.from(this.groups.values()).map(group => `
             <div class="progress-item" data-group="${group.name}">
@@ -459,7 +652,25 @@ class Host {
             return;
         }
 
-        const answers = this.currentContent.keyTerms.map(term => ({
+        // Get current topic - either from multi-topic or single topic format
+        let currentTopic;
+        let topicId;
+        
+        if (this.topics && this.topics.length > 0) {
+            // Multi-topic content
+            currentTopic = this.topics[this.currentTopicIndex];
+            topicId = currentTopic?.id;
+        } else {
+            // Single topic (backward compatible)
+            currentTopic = this.currentContent;
+        }
+
+        if (!currentTopic || !currentTopic.keyTerms) {
+            alert('No content to reveal');
+            return;
+        }
+
+        const answers = currentTopic.keyTerms.map(term => ({
             blankId: term.id,
             answer: term.term
         }));
@@ -467,19 +678,22 @@ class Host {
         this.socket.emit('reveal-answers', {
             roomCode: this.roomCode,
             hostToken: this.hostToken,
-            answers
+            answers,
+            topicId
         });
 
-        // Update preview to show answers
+        // Update preview to show answers for current topic
         const container = document.getElementById('content-preview');
-        let html = this.currentContent.text || '';
-        this.currentContent.keyTerms?.forEach(term => {
-            html = html.replace(`{{${term.id}}}`, `<span class="blank revealed">${term.term}</span>`);
-        });
+        if (container) {
+            let html = currentTopic.text || '';
+            currentTopic.keyTerms?.forEach(term => {
+                html = html.replace(`{{${term.id}}}`, `<span class="blank revealed">${term.term}</span>`);
+            });
 
-        const body = container.querySelector('.content-body');
-        if (body) {
-            body.innerHTML = html;
+            const body = container.querySelector('.content-body');
+            if (body) {
+                body.innerHTML = html;
+            }
         }
 
         alert('Answers revealed to all groups!');
