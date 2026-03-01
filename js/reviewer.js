@@ -31,6 +31,11 @@ class FillInTheBlankReviewer {
         
         this.debounceTimer = null;
         
+        // Bind handlers to preserve reference for cleanup
+        this.handleInputBound = this.handleInputEvent.bind(this);
+        this.handleBlurBound = this.handleBlurEvent.bind(this);
+        this.handleKeydownBound = this.handleKeydownEvent.bind(this);
+        
         this.init();
     }
 
@@ -45,26 +50,63 @@ class FillInTheBlankReviewer {
 
     bindEvents() {
         // Input event delegation for dynamic inputs
-        this.container.addEventListener('input', (e) => {
-            if (e.target.classList.contains('blank-input')) {
-                this.handleInput(e.target);
-            }
-        });
+        this.container.addEventListener('input', this.handleInputBound);
 
         // Check answer on blur
-        this.container.addEventListener('blur', (e) => {
-            if (e.target.classList.contains('blank-input')) {
-                this.checkAnswer(e.target);
-            }
-        }, true);
+        this.container.addEventListener('blur', this.handleBlurBound, true);
 
         // Allow Enter key to check answer
-        this.container.addEventListener('keydown', (e) => {
-            if (e.target.classList.contains('blank-input') && e.key === 'Enter') {
-                this.checkAnswer(e.target);
-                e.target.blur();
-            }
-        });
+        this.container.addEventListener('keydown', this.handleKeydownBound);
+    }
+
+    /**
+     * Cleanup event listeners and timers
+     */
+    destroy() {
+        if (this.container) {
+            this.container.removeEventListener('input', this.handleInputBound);
+            this.container.removeEventListener('blur', this.handleBlurBound, true);
+            this.container.removeEventListener('keydown', this.handleKeydownBound);
+        }
+        this.clearDebounceTimer();
+    }
+
+    /**
+     * Clear debounce timer and nullify reference
+     */
+    clearDebounceTimer() {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+        }
+    }
+
+    /**
+     * Handle input events
+     */
+    handleInputEvent(e) {
+        if (e.target.classList.contains('blank-input')) {
+            this.handleInput(e.target);
+        }
+    }
+
+    /**
+     * Handle blur events
+     */
+    handleBlurEvent(e) {
+        if (e.target.classList.contains('blank-input')) {
+            this.checkAnswer(e.target);
+        }
+    }
+
+    /**
+     * Handle keydown events
+     */
+    handleKeydownEvent(e) {
+        if (e.target.classList.contains('blank-input') && e.key === 'Enter') {
+            this.checkAnswer(e.target);
+            e.target.blur();
+        }
     }
 
     /**
@@ -93,6 +135,7 @@ class FillInTheBlankReviewer {
             this.revealedBlanks.clear();
             this.correctAnswers.clear();
             
+            this.clearDebounceTimer();
             this.render();
             this.updateProgress();
             
@@ -169,7 +212,7 @@ class FillInTheBlankReviewer {
             const input = `
                 <input type="text" 
                        class="blank-input" 
-                       data-term-id="${term.id}" 
+                       data-term-id="${this.escapeHtml(term.id)}" 
                        data-term="${this.escapeHtml(term.term)}"
                        placeholder="..."
                        autocomplete="off"
@@ -197,7 +240,7 @@ class FillInTheBlankReviewer {
         this.userAnswers.set(termId, input.value);
 
         if (this.options.autoCheck) {
-            clearTimeout(this.debounceTimer);
+            this.clearDebounceTimer();
             this.debounceTimer = setTimeout(() => {
                 this.checkAnswer(input);
             }, this.options.debounceDelay);
@@ -377,6 +420,7 @@ class FillInTheBlankReviewer {
      * @returns {string} Escaped text
      */
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -404,6 +448,7 @@ class FillInTheBlankReviewer {
         this.userAnswers.clear();
         this.revealedBlanks.clear();
         this.correctAnswers.clear();
+        this.clearDebounceTimer();
         this.render();
         this.updateProgress();
     }

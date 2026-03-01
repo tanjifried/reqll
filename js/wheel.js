@@ -36,9 +36,11 @@ class Wheel {
         
         // Animation state
         this.angle = 0;
+        this.startAngle = 0;
         this.velocity = 0;
         this.isSpinning = false;
         this.animationId = null;
+        this.quickSpinAnimationId = null;
         this.startTime = null;
         this.targetAngle = null;
         this.result = null;
@@ -225,13 +227,14 @@ class Wheel {
             this.isSpinning = true;
             this.result = null;
             this.startTime = performance.now();
+            this.startAngle = this.angle;
             
             // Random target angle (5-10 full rotations + random position)
             const minRotations = 5;
             const maxRotations = 10;
             const rotations = minRotations + Math.random() * (maxRotations - minRotations);
             const randomAngle = Math.random() * 2 * Math.PI;
-            this.targetAngle = this.angle + rotations * 2 * Math.PI + randomAngle;
+            this.targetAngle = this.startAngle + rotations * 2 * Math.PI + randomAngle;
             
             if (this.onSpinStart) {
                 this.onSpinStart({ wheelId: this.id, wheelName: this.name });
@@ -253,12 +256,8 @@ class Wheel {
         // Apply easing
         const easedProgress = this.easeOut(progress);
         
-        // Calculate current angle
-        this.angle = this.angle + (this.targetAngle - this.angle) * (progress === 1 ? 1 : 0.1);
-        
-        // Actually use proper interpolation
-        const startAngle = this.angle - (this.targetAngle - this.angle) * progress / (1 - progress + 0.001);
-        this.angle = startAngle + (this.targetAngle - startAngle) * easedProgress;
+        // Calculate current angle using proper interpolation from start angle
+        this.angle = this.startAngle + (this.targetAngle - this.startAngle) * easedProgress;
         
         // Redraw
         this.draw();
@@ -270,6 +269,7 @@ class Wheel {
             this.isSpinning = false;
             this.angle = this.targetAngle % (2 * Math.PI);
             this.calculateResult();
+            this.animationId = null;
             
             if (this.onSpinComplete) {
                 this.onSpinComplete({ 
@@ -354,6 +354,11 @@ class Wheel {
      * Quick spin animation for updates
      */
     quickSpin() {
+        // Cancel any existing quick spin
+        if (this.quickSpinAnimationId) {
+            cancelAnimationFrame(this.quickSpinAnimationId);
+        }
+        
         const startAngle = this.angle;
         const targetAngle = startAngle + Math.PI * 2;
         const duration = 500;
@@ -368,11 +373,13 @@ class Wheel {
             this.draw();
             
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                this.quickSpinAnimationId = requestAnimationFrame(animate);
+            } else {
+                this.quickSpinAnimationId = null;
             }
         };
         
-        requestAnimationFrame(animate);
+        this.quickSpinAnimationId = requestAnimationFrame(animate);
     }
 
     /**
@@ -397,8 +404,13 @@ class Wheel {
     stop() {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
-            this.isSpinning = false;
+            this.animationId = null;
         }
+        if (this.quickSpinAnimationId) {
+            cancelAnimationFrame(this.quickSpinAnimationId);
+            this.quickSpinAnimationId = null;
+        }
+        this.isSpinning = false;
     }
 
     /**
@@ -407,9 +419,20 @@ class Wheel {
     reset() {
         this.stop();
         this.angle = 0;
+        this.startAngle = 0;
         this.result = null;
         this.currentItems = [...this.items];
         this.draw();
+    }
+
+    /**
+     * Destroy the wheel and cleanup resources
+     */
+    destroy() {
+        this.stop();
+        this.onSpinStart = null;
+        this.onSpinComplete = null;
+        this.onResult = null;
     }
 
     /**

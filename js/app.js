@@ -10,6 +10,8 @@ class ReqllApp {
         this.wheelData = null;
         this.dependentMode = true;
         this.spinAllInProgress = false;
+        this.dependentTimeouts = new Map();
+        this.eventListeners = [];
         
         this.init();
     }
@@ -46,72 +48,166 @@ class ReqllApp {
      */
     bindEvents() {
         // Navigation tabs
+        const tabHandler = (e) => {
+            this.switchView(e.target.dataset.view);
+        };
         document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                this.switchView(e.target.dataset.view);
-            });
+            tab.addEventListener('click', tabHandler);
+            this.eventListeners.push({ el: tab, type: 'click', handler: tabHandler });
         });
 
         // File inputs
-        document.getElementById('reviewer-file')?.addEventListener('change', (e) => {
+        const reviewerFileHandler = (e) => {
             this.handleReviewerFile(e.target.files[0]);
-        });
+        };
+        const reviewerFileInput = document.getElementById('reviewer-file');
+        if (reviewerFileInput) {
+            reviewerFileInput.addEventListener('change', reviewerFileHandler);
+            this.eventListeners.push({ el: reviewerFileInput, type: 'change', handler: reviewerFileHandler });
+        }
 
-        document.getElementById('wheels-file-input')?.addEventListener('change', (e) => {
+        const wheelsFileHandler = (e) => {
             this.handleWheelsFile(e.target.files[0]);
-        });
+        };
+        const wheelsFileInput = document.getElementById('wheels-file-input');
+        if (wheelsFileInput) {
+            wheelsFileInput.addEventListener('change', wheelsFileHandler);
+            this.eventListeners.push({ el: wheelsFileInput, type: 'change', handler: wheelsFileHandler });
+        }
 
         // Buttons
-        document.getElementById('reveal-all-btn')?.addEventListener('click', () => {
+        const revealAllHandler = () => {
             this.reviewer.revealAll();
-        });
+        };
+        const revealAllBtn = document.getElementById('reveal-all-btn');
+        if (revealAllBtn) {
+            revealAllBtn.addEventListener('click', revealAllHandler);
+            this.eventListeners.push({ el: revealAllBtn, type: 'click', handler: revealAllHandler });
+        }
 
-        document.getElementById('load-wheels-btn')?.addEventListener('click', () => {
+        const loadWheelsHandler = () => {
             document.getElementById('wheels-file-input').click();
-        });
+        };
+        const loadWheelsBtn = document.getElementById('load-wheels-btn');
+        if (loadWheelsBtn) {
+            loadWheelsBtn.addEventListener('click', loadWheelsHandler);
+            this.eventListeners.push({ el: loadWheelsBtn, type: 'click', handler: loadWheelsHandler });
+        }
 
-        document.getElementById('spin-all-btn')?.addEventListener('click', () => {
+        const spinAllHandler = () => {
             this.spinAll();
-        });
+        };
+        const spinAllBtn = document.getElementById('spin-all-btn');
+        if (spinAllBtn) {
+            spinAllBtn.addEventListener('click', spinAllHandler);
+            this.eventListeners.push({ el: spinAllBtn, type: 'click', handler: spinAllHandler });
+        }
 
         // Settings
-        document.getElementById('similarity-threshold')?.addEventListener('input', (e) => {
+        const similarityHandler = (e) => {
             const value = e.target.value;
             e.target.nextElementSibling.textContent = `${value}%`;
             this.reviewer.updateOptions({ similarityThreshold: value / 100 });
-        });
+        };
+        const similarityInput = document.getElementById('similarity-threshold');
+        if (similarityInput) {
+            similarityInput.addEventListener('input', similarityHandler);
+            this.eventListeners.push({ el: similarityInput, type: 'input', handler: similarityHandler });
+        }
 
-        document.getElementById('case-sensitive')?.addEventListener('change', (e) => {
+        const caseSensitiveHandler = (e) => {
             this.reviewer.updateOptions({ caseSensitive: e.target.checked });
-        });
+        };
+        const caseSensitiveInput = document.getElementById('case-sensitive');
+        if (caseSensitiveInput) {
+            caseSensitiveInput.addEventListener('change', caseSensitiveHandler);
+            this.eventListeners.push({ el: caseSensitiveInput, type: 'change', handler: caseSensitiveHandler });
+        }
 
-        document.getElementById('spin-duration')?.addEventListener('change', (e) => {
+        const spinDurationHandler = (e) => {
             const duration = parseInt(e.target.value);
             this.wheels.forEach(wheel => {
                 wheel.updateOptions({ spinDuration: duration });
             });
-        });
+        };
+        const spinDurationInput = document.getElementById('spin-duration');
+        if (spinDurationInput) {
+            spinDurationInput.addEventListener('change', spinDurationHandler);
+            this.eventListeners.push({ el: spinDurationInput, type: 'change', handler: spinDurationHandler });
+        }
 
-        document.getElementById('animation-speed')?.addEventListener('input', (e) => {
+        const animationSpeedHandler = (e) => {
             const value = e.target.value;
             e.target.nextElementSibling.textContent = `${value}x`;
-        });
+        };
+        const animationSpeedInput = document.getElementById('animation-speed');
+        if (animationSpeedInput) {
+            animationSpeedInput.addEventListener('input', animationSpeedHandler);
+            this.eventListeners.push({ el: animationSpeedInput, type: 'input', handler: animationSpeedHandler });
+        }
 
         // Dependent mode toggle
-        document.getElementById('dependent-mode')?.addEventListener('change', (e) => {
+        const dependentModeHandler = (e) => {
             this.dependentMode = e.target.checked;
-        });
+        };
+        const dependentModeInput = document.getElementById('dependent-mode');
+        if (dependentModeInput) {
+            dependentModeInput.addEventListener('change', dependentModeHandler);
+            this.eventListeners.push({ el: dependentModeInput, type: 'change', handler: dependentModeHandler });
+        }
 
         // Modal close
-        document.querySelector('.modal-close')?.addEventListener('click', () => {
+        const modalCloseHandler = () => {
             this.hideModal();
-        });
+        };
+        const modalCloseBtn = document.querySelector('.modal-close');
+        if (modalCloseBtn) {
+            modalCloseBtn.addEventListener('click', modalCloseHandler);
+            this.eventListeners.push({ el: modalCloseBtn, type: 'click', handler: modalCloseHandler });
+        }
 
-        document.getElementById('result-modal')?.addEventListener('click', (e) => {
+        const modalBackdropHandler = (e) => {
             if (e.target === e.currentTarget) {
                 this.hideModal();
             }
+        };
+        const modalEl = document.getElementById('result-modal');
+        if (modalEl) {
+            modalEl.addEventListener('click', modalBackdropHandler);
+            this.eventListeners.push({ el: modalEl, type: 'click', handler: modalBackdropHandler });
+        }
+    }
+
+    /**
+     * Cleanup all event listeners
+     */
+    cleanupEventListeners() {
+        this.eventListeners.forEach(({ el, type, handler }) => {
+            el.removeEventListener(type, handler);
         });
+        this.eventListeners = [];
+    }
+
+    /**
+     * Cleanup dependent wheel timeouts
+     */
+    cleanupDependentTimeouts() {
+        this.dependentTimeouts.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.dependentTimeouts.clear();
+    }
+
+    /**
+     * Cleanup all wheel instances
+     */
+    cleanupWheels() {
+        this.wheels.forEach(wheel => {
+            if (typeof wheel.destroy === 'function') {
+                wheel.destroy();
+            }
+        });
+        this.wheels.clear();
     }
 
     /**
@@ -183,8 +279,11 @@ class ReqllApp {
      * @param {Object} data - Wheels configuration data
      */
     loadWheels(data) {
+        // Cleanup existing wheels first
+        this.cleanupDependentTimeouts();
+        this.cleanupWheels();
+        
         this.wheelData = data;
-        this.wheels.clear();
 
         const container = document.getElementById('wheels-container');
         container.innerHTML = '';
@@ -305,12 +404,20 @@ class ReqllApp {
                 // Update status
                 this.updateWheelStatus(wheelId, 'updated');
                 
+                // Clear any existing timeout for this wheel
+                if (this.dependentTimeouts.has(wheelId)) {
+                    clearTimeout(this.dependentTimeouts.get(wheelId));
+                }
+                
                 // Auto-spin dependent wheel after a short delay
-                setTimeout(() => {
-                    if (newItems.length > 0) {
+                const timeoutId = setTimeout(() => {
+                    if (newItems.length > 0 && this.wheels.has(wheelId)) {
                         wheel.spin();
                     }
+                    this.dependentTimeouts.delete(wheelId);
                 }, 800);
+                
+                this.dependentTimeouts.set(wheelId, timeoutId);
             }
         });
     }
