@@ -3,6 +3,15 @@
  * Handles group player interactions with the lobby
  */
 
+// Global error handlers for debugging
+window.addEventListener('error', (e) => {
+    console.error('Global error:', e.error);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled promise rejection:', e.reason);
+});
+
 class Player {
     constructor() {
         this.socket = null;
@@ -100,21 +109,37 @@ class Player {
         });
 
         this.socket.on('content-loaded', (data) => {
-            this.loadContent(data.content);
+            try {
+                this.loadContent(data.content);
+            } catch (err) {
+                console.error('Error in content-loaded handler:', err);
+            }
         });
 
         this.socket.on('answers-revealed', (data) => {
-            this.showRevealedAnswers(data.answers);
+            try {
+                this.showRevealedAnswers(data.answers);
+            } catch (err) {
+                console.error('Error in answers-revealed handler:', err);
+            }
         });
 
         this.socket.on('wheel-spun', (data) => {
-            this.showWheelResult(data.result);
+            try {
+                this.showWheelResult(data.result);
+            } catch (err) {
+                console.error('Error in wheel-spun handler:', err);
+            }
         });
 
         this.socket.on('lobby-closed', () => {
-            alert('The lobby has been closed.');
-            this.clearSession();
-            window.location.reload();
+            try {
+                alert('The lobby has been closed.');
+                this.clearSession();
+                window.location.reload();
+            } catch (err) {
+                console.error('Error in lobby-closed handler:', err);
+            }
         });
     }
 
@@ -177,43 +202,56 @@ class Player {
     }
 
     loadContent(content) {
-        this.content = content;
-        this.switchScreen('game');
+        try {
+            this.content = content;
+            this.switchScreen('game');
 
-        const contentArea = document.getElementById('content-area');
-        
-        if (content.title) {
-            contentArea.innerHTML = `<h2 class="content-title">${content.title}</h2>`;
+            const contentArea = document.getElementById('content-area');
+            
+            if (content.title) {
+                contentArea.innerHTML = `<h2 class="content-title">${content.title}</h2>`;
+            }
+
+            this.keyTerms = content.keyTerms || [];
+            let html = content.text || '';
+
+            this.keyTerms.forEach(term => {
+                const input = `<input type="text" class="blank-input" data-term-id="${term.id}" placeholder="?" autocomplete="off">`;
+                html = html.replace(`{{${term.id}}}`, input);
+            });
+
+            const textEl = document.createElement('div');
+            textEl.className = 'content-text';
+            textEl.innerHTML = html;
+            contentArea.appendChild(textEl);
+
+            contentArea.querySelectorAll('.blank-input').forEach(input => {
+                input.addEventListener('blur', () => {
+                    try {
+                        this.submitAnswer(input.dataset.termId, input.value);
+                    } catch (err) {
+                        console.error('Error in submitAnswer:', err);
+                    }
+                });
+
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        try {
+                            this.submitAnswer(input.dataset.termId, input.value);
+                            input.blur();
+                        } catch (err) {
+                            console.error('Error in submitAnswer:', err);
+                        }
+                    }
+                });
+            });
+
+            document.getElementById('answers-revealed').classList.add('hidden');
+            document.getElementById('wheel-result').classList.add('hidden');
+        } catch (error) {
+            console.error('Error loading content:', error);
+            alert('Error loading content. Please refresh the page.');
         }
-
-        this.keyTerms = content.keyTerms || [];
-        let html = content.text || '';
-
-        this.keyTerms.forEach(term => {
-            const input = `<input type="text" class="blank-input" data-term-id="${term.id}" placeholder="?" autocomplete="off">`;
-            html = html.replace(`{{${term.id}}}`, input);
-        });
-
-        const textEl = document.createElement('div');
-        textEl.className = 'content-text';
-        textEl.innerHTML = html;
-        contentArea.appendChild(textEl);
-
-        contentArea.querySelectorAll('.blank-input').forEach(input => {
-            input.addEventListener('blur', () => {
-                this.submitAnswer(input.dataset.termId, input.value);
-            });
-
-            input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.submitAnswer(input.dataset.termId, input.value);
-                    input.blur();
-                }
-            });
-        });
-
-        document.getElementById('answers-revealed').classList.add('hidden');
-        document.getElementById('wheel-result').classList.add('hidden');
     }
 
     submitAnswer(blankId, answer) {
