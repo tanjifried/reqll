@@ -29,20 +29,6 @@ class Player {
             this.roomCode = savedRoomCode;
             this.groupName = savedGroupName;
         }
-        
-        // Start heartbeat to keep connection alive
-        this.startHeartbeat();
-    }
-
-    startHeartbeat() {
-        // Send heartbeat every 15 seconds to keep connection alive
-        setInterval(() => {
-            if (this.socket && this.socket.connected && this.roomCode) {
-                this.socket.emit('ping-server', Date.now(), (response) => {
-                    // Connection is alive
-                });
-            }
-        }, 15000);
     }
 
     parseUrlParams() {
@@ -92,12 +78,11 @@ class Player {
             console.log('Disconnected from server:', reason);
             this.showConnectionStatus(false);
             
-            // Only show disconnected screen if manually not trying to reconnect
-            // Auto-reconnect will handle transient disconnects
-            if (reason === 'io server disconnect') {
+            // Show disconnected screen only for server-initiated disconnects or transport errors
+            // Socket.IO auto-reconnect handles network issues, ping timeout, etc.
+            if (reason === 'io server disconnect' || reason === 'transport close') {
                 this.switchScreen('disconnected');
             }
-            // For client-side disconnects, Socket.IO will auto-reconnect
         });
 
         this.socket.on('reconnect', (attemptNumber) => {
@@ -315,18 +300,9 @@ class Player {
             return;
         }
 
-        // Ensure socket is connected before trying to rejoin
-        if (!this.socket.connected) {
-            console.log('Socket not connected, attempting to reconnect...');
-            this.socket.connect();
-            
-            // Wait for connection before rejoining
-            this.socket.once('connect', () => {
-                this.attemptRejoin();
-            });
-        } else {
-            this.attemptRejoin();
-        }
+        // Socket.IO handles reconnection automatically
+        // Just try to rejoin - if socket isn't connected, emit will queue or fail gracefully
+        this.attemptRejoin();
     }
 
     attemptRejoin() {

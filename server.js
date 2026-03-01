@@ -17,7 +17,7 @@ const io = socketIO(server, {
   },
   pingTimeout: 60000,
   pingInterval: 25000,
-  transports: ['polling', 'websocket'], // Prefer polling for better compatibility
+  transports: ['websocket', 'polling'], // WebSocket preferred, polling as fallback
   allowUpgrades: true
 });
 
