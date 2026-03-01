@@ -8,6 +8,17 @@ const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('./logger');
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  logger.error('Uncaught Exception', { error: err.message, stack: err.stack });
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+  logger.error('Unhandled Rejection', { reason: String(reason) });
+});
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -463,9 +474,17 @@ io.on('connection', (socket) => {
 
       if (lobby.groups.has(sanitizedGroupName)) {
         const existingGroup = lobby.groups.get(sanitizedGroupName);
-        const existingSocket = io.sockets.sockets.get(existingGroup.socketId);
         
-        if (existingSocket && existingSocket.connected) {
+        // Safely check if existing socket is still connected
+        let isConnected = false;
+        try {
+          const existingSocket = io.sockets.sockets.get(existingGroup.socketId);
+          isConnected = existingSocket && existingSocket.connected;
+        } catch (err) {
+          logger.error('Error checking existing socket', { error: err.message });
+        }
+        
+        if (isConnected) {
           return callback({ error: 'Group name already taken' });
         } else {
           // Remove disconnected group's stale entry
@@ -568,22 +587,26 @@ io.on('connection', (socket) => {
 
       // Store answer
       group.answers.set(blankId, {
-        answer,
+        answer: String(answer),
         submittedAt: Date.now()
       });
 
       lobby.lastActivity = Date.now();
 
-      // Notify host
-      io.to(`host-${roomCode}`).emit('answer-submitted', {
-        groupName,
-        blankId,
-        answer,
-        totalAnswers: group.answers.size
-      });
+      // Notify host - safely
+      const hostRoom = io.sockets.adapter.rooms.get(`host-${roomCode}`);
+      if (hostRoom && hostRoom.size > 0) {
+        io.to(`host-${roomCode}`).emit('answer-submitted', {
+          groupName,
+          blankId,
+          answer: String(answer),
+          totalAnswers: group.answers.size
+        });
+      }
 
       callback({ success: true });
     } catch (error) {
+      logger.error('Error in submit-answer', { error: error.message });
       callback({ error: error.message });
     }
   });
@@ -707,27 +730,34 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnect
-  socket.on('disconnect', () => {
-    logger.info('Client disconnected', { socketId: socket.id, roomCode: socket.roomCode, groupName: socket.groupName });
+  socket.on('disconnect', (reason) => {
+    logger.info('Client disconnected', { socketId: socket.id, roomCode: socket.roomCode, groupName: socket.groupName, reason });
 
     // Check if this is a group
     if (socket.roomCode && socket.groupName) {
-      const lobby = activeLobbies.get(socket.roomCode);
-      if (lobby) {
-        lobby.groups.delete(socket.groupName);
-        lobby.lastActivity = Date.now();
+      try {
+        const lobby = activeLobbies.get(socket.roomCode);
+        if (lobby) {
+          lobby.groups.delete(socket.groupName);
+          lobby.lastActivity = Date.now();
 
-        // Notify host
-        io.to(`host-${socket.roomCode}`).emit('group-left', {
-          groupName: socket.groupName,
-          groupCount: lobby.groups.size,
-          groups: Array.from(lobby.groups.values()).map(g => ({
-            name: g.name,
-            score: g.score
-          }))
-        });
+          // Notify host - safe emit
+          const hostRoom = io.sockets.adapter.rooms.get(`host-${socket.roomCode}`);
+          if (hostRoom && hostRoom.size > 0) {
+            io.to(`host-${socket.roomCode}`).emit('group-left', {
+              groupName: socket.groupName,
+              groupCount: lobby.groups.size,
+              groups: Array.from(lobby.groups.values()).map(g => ({
+                name: g.name,
+                score: g.score
+              }))
+            });
+          }
 
-        logger.info('Group left lobby', { groupName: socket.groupName, roomCode: socket.roomCode });
+          logger.info('Group left lobby', { groupName: socket.groupName, roomCode: socket.roomCode });
+        }
+      } catch (error) {
+        logger.error('Error in disconnect handler', { error: error.message });
       }
     }
   });
