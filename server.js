@@ -384,7 +384,12 @@ app.delete('/api/logs', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-      logger.info('Client connected', { socketId: socket.id });
+  logger.info('Client connected', { socketId: socket.id });
+
+  // Handle socket errors
+  socket.on('error', (error) => {
+    logger.error('Socket error', { socketId: socket.id, error: error.message });
+  });
 
   // Host creates a lobby
   socket.on('create-lobby', (data, callback) => {
@@ -457,7 +462,16 @@ io.on('connection', (socket) => {
       }
 
       if (lobby.groups.has(sanitizedGroupName)) {
-        return callback({ error: 'Group name already taken' });
+        const existingGroup = lobby.groups.get(sanitizedGroupName);
+        const existingSocket = io.sockets.sockets.get(existingGroup.socketId);
+        
+        if (existingSocket && existingSocket.connected) {
+          return callback({ error: 'Group name already taken' });
+        } else {
+          // Remove disconnected group's stale entry
+          lobby.groups.delete(sanitizedGroupName);
+          logger.info('Removed stale group entry', { groupName: sanitizedGroupName, roomCode });
+        }
       }
 
       // Add group to lobby
