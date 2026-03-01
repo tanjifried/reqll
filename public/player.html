@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reqll - Group Player</title>
+    <link rel="stylesheet" href="css/player.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Join Screen -->
+        <div id="join-screen" class="screen active">
+            <div class="join-container">
+                <h1>🎯 Join Game</h1>
+                
+                <div class="form-group">
+                    <label>Room Code</label>
+                    <input type="text" id="room-code" placeholder="Enter 6-character code" maxlength="6">
+                </div>
+
+                <div class="form-group">
+                    <label>Group Name</label>
+                    <input type="text" id="group-name" placeholder="Enter your group name" maxlength="20">
+                </div>
+
+                <button id="join-btn" class="btn btn-primary">Join Game</button>
+                
+                <div id="join-error" class="error-message"></div>
+            </div>
+        </div>
+
+        <!-- Waiting Screen -->
+        <div id="waiting-screen" class="screen">
+            <div class="waiting-container">
+                <div class="spinner"></div>
+                <h2>Waiting for Host...</h2>
+                <p id="waiting-group-name"></p>
+                <p class="hint">The host will start the game soon</p>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-container">
+                <header class="player-header">
+                    <h2 id="player-group-name">Group Name</h2>
+                    <div class="connection-status connected">● Connected</div>
+                </header>
+
+                <div id="content-area" class="content-area">
+                    <!-- Content loaded by host -->
+                </div>
+
+                <div id="wheel-result" class="wheel-result hidden">
+                    <h3>🎡 Wheel Result</h3>
+                    <div class="result-value">-</div>
+                </div>
+
+                <div id="answers-revealed" class="answers-revealed hidden">
+                    <h3>✅ Correct Answers</h3>
+                    <div id="revealed-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disconnected Screen -->
+        <div id="disconnected-screen" class="screen">
+            <div class="disconnected-container">
+                <h2>⚠️ Disconnected</h2>
+                <p>Connection to the game was lost.</p>
+                <button id="reconnect-btn" class="btn btn-primary">Try Reconnect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/fuzzyMatcher.js"></script>
+    <script src="js/player.js"></script>
+</body>
+</html>

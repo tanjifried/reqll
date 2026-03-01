@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reqll - Host Dashboard</title>
+    <link rel="stylesheet" href="css/host.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Login/Create Screen -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="brand">
+                    <span class="logo">🎯</span>
+                    <h1>reqll</h1>
+                </div>
+                
+                <p class="tagline">Classroom engagement tool for group learning</p>
+                
+                <button id="create-lobby-btn" class="btn btn-primary">
+                    Create New Lobby
+                </button>
+                
+                <div id="loading-indicator" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Creating lobby...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Host Dashboard -->
+        <div id="dashboard-screen" class="screen">
+            <div class="dashboard">
+                <!-- Sidebar -->
+                <aside class="sidebar">
+                    <div class="sidebar-header">
+                        <h2>🎯 reqll</h2>
+                        <div class="room-info">
+                            <span class="room-code-label">Room Code</span>
+                            <span id="room-code-display" class="room-code">------</span>
+                            <button id="copy-room-btn" class="btn-icon" title="Copy room code">📋</button>
+                        </div>
+                    </div>
+
+                    <div class="qr-section">
+                        <img id="qr-code" class="qr-code" alt="QR Code">
+                        <p class="qr-hint">Scan to join</p>
+                    </div>
+
+                    <nav class="sidebar-nav">
+                        <button class="nav-item active" data-tab="lobby">
+                            👥 Lobby
+                        </button>
+                        <button class="nav-item" data-tab="content">
+                            📝 Content
+                        </button>
+                        <button class="nav-item" data-tab="wheels">
+                            🎡 Wheels
+                        </button>
+                    </nav>
+
+                    <div class="sidebar-footer">
+                        <div class="connection-status">
+                            <span class="status-dot"></span>
+                            <span>Connected</span>
+                        </div>
+                        <button id="close-lobby-btn" class="btn btn-danger">Close Lobby</button>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content">
+                    
+                    <!-- Lobby Tab -->
+                    <div id="lobby-tab" class="tab-content active">
+                        <div class="tab-header">
+                            <h2>👥 Lobby</h2>
+                            <div class="group-count">
+                                <span id="group-count">0</span> groups connected
+                            </div>
+                        </div>
+
+                        <div id="groups-list" class="groups-list">
+                            <div class="empty-state">
+                                <p>No groups connected yet</p>
+                                <p class="hint">Share the room code or QR code to let groups join</p>
+                            </div>
+                        </div>
+
+                        <div class="lobby-actions">
+                            <div class="action-row">
+                                <label>Join URL:</label>
+                                <input type="text" id="join-url" readonly>
+                                <button id="copy-url-btn" class="btn btn-secondary">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Content Tab -->
+                    <div id="content-tab" class="tab-content">
+                        <div class="tab-header">
+                            <h2>📝 Content</h2>
+                        </div>
+
+                        <div class="content-controls">
+                            <input type="file" id="content-file" accept=".json,.md" hidden>
+                            
+                            <button class="btn btn-secondary" onclick="document.getElementById('content-file').click()">
+                                📁 Load Content
+                            </button>
+                            
+                            <button id="broadcast-content-btn" class="btn btn-primary" disabled>
+                                📡 Broadcast to Groups
+                            </button>
+                        </div>
+
+                        <div id="content-preview" class="content-preview">
+                            <div class="empty-state">
+                                <p>No content loaded</p>
+                                <p class="hint">Load a JSON or Markdown file to begin</p>
+                            </div>
+                        </div>
+
+                        <div id="group-progress" class="group-progress hidden">
+                            <h3>Group Progress</h3>
+                            <div id="progress-list" class="progress-list"></div>
+                        </div>
+
+                        <div class="host-controls">
+                            <button id="reveal-answers-btn" class="btn btn-accent" disabled>
+                                👁️ Reveal Answers
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Wheels Tab -->
+                    <div id="wheels-tab" class="tab-content">
+                        <div class="tab-header">
+                            <h2>🎡 Wheel Manager</h2>
+                        </div>
+
+                        <div class="wheels-layout">
+                            <!-- Wheel Editor Sidebar -->
+                            <div class="wheel-editor">
+                                <div class="editor-section">
+                                    <button id="new-wheel-btn" class="btn btn-secondary">+ New Wheel</button>
+                                    
+                                    <button id="save-wheels-btn" class="btn btn-primary">💾 Save Configuration</button>
+                                </div>
+
+                                <div class="editor-section">
+                                    <label>Load Preset:</label>
+                                    <select id="preset-select">
+                                        <option value="">Select a preset...</option>
+                                    </select>
+                                </div>
+
+                                <div id="wheels-editor-list" class="wheels-editor-list">
+                                    <!-- Wheels will be listed here -->
+                                </div>
+                            </div>
+
+                            <!-- Wheel Preview Area -->
+                            <div class="wheel-preview-area">
+                                <div id="wheels-display" class="wheels-display">
+                                    <div class="empty-state">
+                                        <p>No wheels configured</p>
+                                        <p class="hint">Create a new wheel or load a preset</p>
+                                    </div>
+                                </div>
+
+                                <div class="wheel-controls">
+                                    <button id="spin-all-btn" class="btn btn-accent">🎲 Spin All</button>
+                                    
+                                    <label class="toggle">
+                                        <input type="checkbox" id="dependent-mode" checked>
+                                        <span>Dependent Mode</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Wheel Editor Modal -->
+        <div id="wheel-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Edit Wheel</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Wheel Name</label>
+                        <input type="text" id="wheel-name" placeholder="e.g., Groups">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Wheel Type</label>
+                        <select id="wheel-type">
+                            <option value="independent">Independent</option>
+                            <option value="dependent">Dependent</option>
+                        </select>
+                    </div>
+
+                    <div id="depends-on-group" class="form-group hidden">
+                        <label>Depends On</label>
+                        <select id="depends-on"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Items (one per line)</label>
+                        <textarea id="wheel-items" rows="8" placeholder="Group A
+Group B
+Group C"></textarea>
+                    </div>
+
+                    <div id="dependent-data" class="form-group hidden">
+                        <label>Dependent Data</label>
+                        <p class="hint">Format: GroupName: Member1, Member2, Member3</p>
+                        <textarea id="wheel-data" rows="6" placeholder="Group A: Alice, Bob, Charlie
+Group B: David, Eve, Frank"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Spin Duration (ms)</label>
+                        <input type="number" id="wheel-duration" value="3000" min="500" max="10000" step="100">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="delete-wheel-btn" class="btn btn-danger">Delete</button>
+                    <button id="save-wheel-btn" class="btn btn-primary">Save Wheel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Modal -->
+        <div id="result-modal" class="modal">
+            <div class="modal-content">
+                <span class="modal-close">&times;</span>
+                <div class="modal-body">
+                    <div class="result-icon">🎉</div>
+                    <h2>Wheel Result</h2>
+                    <p id="result-value" class="result-value">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/fuzzyMatcher.js"></script>
+    <script src="js/wheel.js"></script>
+    <script src="js/host.js"></script>
+</body>
+</html>
