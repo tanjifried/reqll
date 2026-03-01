@@ -20,6 +20,7 @@ class Host {
         this.wheelConfigs = [];
         this.currentWheelId = null;
         this.groupAnswers = new Map(); // Track answers per group
+        this.spinResults = []; // Track all spin results
 
         this.init();
     }
@@ -183,6 +184,17 @@ class Host {
             btn.addEventListener('click', (e) => {
                 e.target.closest('.modal').classList.remove('active');
             });
+        });
+
+        // Results modal buttons
+        document.getElementById('dismiss-results-btn')?.addEventListener('click', () => {
+            document.getElementById('result-modal').classList.remove('active');
+        });
+
+        document.getElementById('clear-results-btn')?.addEventListener('click', () => {
+            this.spinResults = [];
+            this.renderSpinResults();
+            document.getElementById('result-modal').classList.remove('active');
         });
 
         document.getElementById('wheel-type').addEventListener('change', (e) => {
@@ -781,6 +793,20 @@ class Host {
         wheel.onSpinComplete = (data) => {
             this.updateWheelResult(config.id, data.result);
             
+            // Track the result
+            if (data.result) {
+                this.spinResults.push({
+                    wheelId: config.id,
+                    wheelName: config.name,
+                    wheelType: config.type,
+                    result: data.result.value,
+                    timestamp: Date.now()
+                });
+            }
+            
+            // Show results modal
+            this.showResultsModal();
+
             if (this.dependentMode && config.type === 'independent') {
                 this.handleDependentUpdate(config.id, data.result);
             }
@@ -812,23 +838,67 @@ class Host {
         }
     }
 
+    showResultsModal() {
+        this.renderSpinResults();
+        document.getElementById('result-modal').classList.add('active');
+    }
+
+    renderSpinResults() {
+        const container = document.getElementById('spin-results-list');
+        
+        if (this.spinResults.length === 0) {
+            container.innerHTML = '<div class="spin-results-empty">No spin results yet. Spin some wheels!</div>';
+            return;
+        }
+
+        container.innerHTML = this.spinResults.map((result, index) => `
+            <div class="spin-result-item" data-index="${index}">
+                <div class="result-info">
+                    <div class="wheel-name">${result.wheelName} (${result.wheelType})</div>
+                    <div class="result-value">${result.result}</div>
+                </div>
+                <button class="remove-btn" onclick="host.removeSpinResult(${index})" title="Remove">✕</button>
+            </div>
+        `).join('');
+    }
+
+    removeSpinResult(index) {
+        this.spinResults.splice(index, 1);
+        this.renderSpinResults();
+        
+        if (this.spinResults.length === 0) {
+            document.getElementById('result-modal').classList.remove('active');
+        }
+    }
+
     handleDependentUpdate(sourceWheelId, result) {
-        if (!result) return;
+        if (!result || !result.value) return;
+
+        console.log('Handling dependent update:', sourceWheelId, result.value);
 
         this.wheels.forEach((wheel, wheelId) => {
             if (wheel.wheelConfig?.type === 'dependent' && 
                 wheel.wheelConfig?.dependsOn === sourceWheelId) {
                 
+                console.log('Found dependent wheel:', wheelId, wheel.wheelConfig.name);
+                
                 const dependentData = wheel.wheelConfig.data;
+                console.log('Dependent data:', dependentData);
+                console.log('Looking for key:', result.value);
+                
                 const newItems = dependentData[result.value] || [];
+                console.log('New items:', newItems);
                 
-                wheel.setItems(newItems, true);
-                
-                setTimeout(() => {
-                    if (newItems.length > 0) {
+                if (newItems.length > 0) {
+                    wheel.setItems(newItems, true);
+                    
+                    setTimeout(() => {
+                        console.log('Auto-spinning dependent wheel:', wheel.wheelConfig.name);
                         wheel.spin();
-                    }
-                }, 800);
+                    }, 800);
+                } else {
+                    console.log('No items found for:', result.value);
+                }
             }
         });
     }

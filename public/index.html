@@ -262,12 +262,19 @@ Group B: David, Eve, Frank"></textarea>
 
         <!-- Results Modal -->
         <div id="result-modal" class="modal">
-            <div class="modal-content">
-                <span class="modal-close">&times;</span>
+            <div class="modal-content modal-large">
+                <div class="modal-header">
+                    <h2>🎲 Spin Results</h2>
+                    <button class="modal-close">&times;</button>
+                </div>
                 <div class="modal-body">
-                    <div class="result-icon">🎉</div>
-                    <h2>Wheel Result</h2>
-                    <p id="result-value" class="result-value">-</p>
+                    <div id="spin-results-list" class="spin-results-list">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="clear-results-btn" class="btn btn-secondary">Clear All</button>
+                    <button id="dismiss-results-btn" class="btn btn-primary">Done</button>
                 </div>
             </div>
         </div>

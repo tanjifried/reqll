@@ -341,9 +341,16 @@ class Player {
             html = html.replace(`{{${term.id}}}`, input);
         });
 
+        // Format text - split by newlines and wrap in paragraphs
+        const formattedHtml = html
+            .split('\n')
+            .filter(line => line.trim())
+            .map(line => `<p>${line.trim()}</p>`)
+            .join('');
+
         const textEl = document.createElement('div');
         textEl.className = 'doc-content';
-        textEl.innerHTML = html;
+        textEl.innerHTML = formattedHtml;
         contentArea.appendChild(textEl);
 
         // Restore saved answers for this topic

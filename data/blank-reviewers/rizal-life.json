@@ -4,45 +4,42 @@
     {
       "id": "byaheng-ateneo",
       "title": "Byaheng Ateneo (1872-1877)",
-      "text": "June 10, 1872 : The date Rizal traveled to Manila with Paciano to take entrance exams at the {{blank-1}}. Father Magin Fernando : The {{blank-2}} who initially refused Rizal's admission because he was late for registration and appeared sickly and undersized. Manuel Xeres Burgos : The {{blank-3}} of Father Burgos whose intercession allowed Rizal to eventually be admitted to Ateneo. The Rizal Surname : Used officially for the first time to avoid the Spanish authorities' suspicion surrounding {{blank-4}}, which was linked to the martyred Father Burgos. Caraballo Street : Rizal's first boarding house location (owned by {{blank-5}}, who owed the Rizal family P300). No. 6 Magallanes Street : Rizal's second boarding house inside Intramuros, owned by {{blank-6}}. Roman Empire : The student faction consisting of {{blank-7}} (boarders) with red banners. Carthaginian Empire : The student faction consisting of {{blank-8}} (non-boarders) with blue banners. Empire Ranks : The {{blank-9}} hierarchical ranks students competed for: Emperor (1st), Tribune (2nd), Decurion (3rd), Centurion (4th), and Standard-bearer (5th). Rayadillo : The hemp-fabric trousers and striped cotton coat uniform of {{blank-10}} students. Fr. Jose Bech : Rizal's {{blank-11}} professor (1872-1873). Prophecy of Mother's Release : Rizal correctly predicted his mother would be released from prison in exactly {{blank-12}} months, earning him a reputation like the biblical Joseph. Literary Influences : {{blank-13}} (Alexander Dumas), Universal History (Cesar Cantu), and Travels in the Philippines (Dr. Feodor Jagor), which prophesied Spain losing the Philippines to America. Father Francisco de Paula Sanchez : Rizal's {{blank-14}} professor, considered a model of uprightness, who inspired him to excel in poetry and sciences. March 23, 1877 : The date Rizal graduated with a Bachelor of Arts degree at age {{blank-15}}, earning the highest honors (Sobresaliente) and five medals. Sacred Heart of Jesus : A sculpture requested by Father Lleonart. Rizal forgot to bring it to Spain; boarders placed it on the dorm door, and it played a highly significant part during Rizal's last hours at {{blank-16}}.",
+      "text": "June 10, 1872 : The date Rizal traveled to Manila with Paciano to take entrance exams at the College of San Juan de Letran. Father Magin Fernando : The {{blank-1}} who initially refused Rizal's admission because he was late and appeared sickly. Manuel Xeres Burgos : The {{blank-2}} of Father Burgos who helped Rizal get admitted. The Rizal Surname : Used officially for the first time to avoid Spanish suspicion surrounding {{blank-3}}. Caraballo Street : Rizal's first boarding house owned by {{blank-4}}. No. 6 Magallanes Street : Rizal's second boarding house inside Intramuros owned by {{blank-5}}. Roman Empire : The student faction of {{blank-6}} (boarders) with red banners. Carthaginian Empire : The student faction of {{blank-7}} (non-boarders) with blue banners. Empire Ranks : The {{blank-8}} hierarchical ranks: Emperor, Tribune, Decurion, Centurion, and Standard-bearer. Rayadillo : The uniform of {{blank-9}} students. Fr. Jose Bech : Rizal's first-year professor (1872-1873). Prophecy : Rizal predicted his mother would be released in {{blank-10}} months. Literary Influences : {{blank-11}} by Alexander Dumas. Father Francisco de Paula Sanchez : Rizal's best professor. March 23, 1877 : The date Rizal graduated with a Bachelor of Arts at age {{blank-12}}. Sacred Heart of Jesus : A sculpture that played a significant role during Rizal's last hours at {{blank-13}}.",
       "keyTerms": [
-        { "id": "blank-1", "term": "College of San Juan de Letran" },
-        { "id": "blank-2", "term": "Ateneo registrar" },
-        { "id": "blank-3", "term": "nephew" },
-        { "id": "blank-4", "term": "Mercado" },
-        { "id": "blank-5", "term": "Titay" },
-        { "id": "blank-6", "term": "Doña Pepay" },
-        { "id": "blank-7", "term": "internos" },
-        { "id": "blank-8", "term": "externos" },
-        { "id": "blank-9", "term": "five" },
-        { "id": "blank-10", "term": "Ateneo" },
-        { "id": "blank-11", "term": "first-year" },
-        { "id": "blank-12", "term": "three" },
-        { "id": "blank-13", "term": "The Count of Monte Cristo" },
-        { "id": "blank-14", "term": "best" },
-        { "id": "blank-15", "term": "16" },
-        { "id": "blank-16", "term": "Fort Santiago" }
+        { "id": "blank-1", "term": "Ateneo registrar" },
+        { "id": "blank-2", "term": "nephew" },
+        { "id": "blank-3", "term": "Mercado" },
+        { "id": "blank-4", "term": "Titay" },
+        { "id": "blank-5", "term": "Doña Pepay" },
+        { "id": "blank-6", "term": "internos" },
+        { "id": "blank-7", "term": "externos" },
+        { "id": "blank-8", "term": "five" },
+        { "id": "blank-9", "term": "Ateneo" },
+        { "id": "blank-10", "term": "three" },
+        { "id": "blank-11", "term": "The Count of Monte Cristo" },
+        { "id": "blank-12", "term": "16" },
+        { "id": "blank-13", "term": "Fort Santiago" }
       ]
     },
     {
       "id": "byaheng-ust",
       "title": "Byaheng UST (1877-1880)",
-      "text": "April 1877 : The date Rizal enrolled in Philosophy and Letters at {{blank-1}} because his father preferred it and he was uncertain of his career. Shift to Medicine : Done for two reasons: 1) To fulfill the advice of Ateneo Rector Father {{blank-2}}, and 2) To acquire skills to cure his mother's increasing {{blank-3}}. November 25, 1881 : The date Rizal officially passed his final examination for the {{blank-4}} (expert surveyor) vocational course at Ateneo. A La Juventud Filipina (1879) : A classic poem that won first prize. It was the first great Spanish poem by a Filipino recognized by Spanish authorities, and the first to express the concept that the youth was the fair hope of the fatherland. The Council of the Gods (1880) : An allegorical drama based on {{blank-5}} that won Rizal a gold ring. December 8, 1880 : The date the zarzuela {{blank-6}} was staged by Ateneans for the Feast Day of the Immaculate Conception. Suffocating Atmosphere : How Rizal viewed UST due to open hostility from {{blank-7}} professors, repressive methods of instruction, and rampant racial discrimination by Spanish classmates. Champion of Filipino Students : Rizal's role as the chief and founder of a secret student society in {{blank-8}} to foster unity and defense among Filipino peers.",
+      "text": "April 1877 : Rizal enrolled in Philosophy and Letters at {{blank-1}}. Shift to Medicine : Done for two reasons: 1) Advice of Ateneo Rector Father {{blank-2}}, 2) To cure his mother's increasing {{blank-3}}. November 25, 1881 : Rizal passed the exam for {{blank-4}}. A La Juventud Filipina (1879) : A poem that won first prize - the first to express the youth as the fair hope of the fatherland. The Council of the Gods (1880) : An allegorical drama that won Rizal a {{blank-5}}. December 8, 1880 : The date the zarzuela {{blank-6}} was staged. Suffocating Atmosphere : How Rizal viewed UST due to Dominican professors and {{blank-7}}. Champion : Rizal founded a secret student society in {{blank-8}} for Filipino unity.",
       "keyTerms": [
         { "id": "blank-1", "term": "UST" },
         { "id": "blank-2", "term": "Pablo Ramon" },
         { "id": "blank-3", "term": "blindness" },
         { "id": "blank-4", "term": "perito agrimensor" },
-        { "id": "blank-5", "term": "Greek classics" },
+        { "id": "blank-5", "term": "gold ring" },
         { "id": "blank-6", "term": "Junto al Pasig" },
-        { "id": "blank-7", "term": "Dominican" },
+        { "id": "blank-7", "term": "racial discrimination" },
         { "id": "blank-8", "term": "1880" }
       ]
     },
     {
       "id": "lipad-espanya",
       "title": "Lipad pa-Espanya (1882-1885)",
-      "text": "Secret Mission : To keenly observe the life, culture, languages, customs, industries, and governments of European nations to prepare himself to liberate the Filipino people from Spanish tyranny. May 3, 1882 : The date Rizal secretly departed on the Spanish Steamer {{blank-1}}. June 16, 1882 : The date he reached Barcelona, where he wrote {{blank-2}} under the pen name {{blank-3}} for the Diariong Tagalog. November 3, 1882 : The date he enrolled at the Universidad Central de {{blank-4}} for Medicine and Philosophy and Letters. Me Piden Versos : A sad poem pouring out the cry of his agonizing heart, written upon the request of the {{blank-5}}. March 1883 : The date Rizal joined the Masonic Lodge {{blank-6}} in Madrid under the name Dimasalang to use the Masons as a shield against the evil forces of tyranny and bad friars. June 17, 1883 : Sojourn to {{blank-7}} (the costliest capital in Europe), observing medical techniques at Laennec and Lariboisiere Hospitals. June 25, 1884 : The date of the banquet where Rizal gave a magnificent speech saluting {{blank-8}} (Spoliarium) and Felix Hidalgo (Christian Virgins Exposed to the Populace). June 21, 1884 : Conferred Licentiate in Medicine (no Doctor's diploma awarded due to lack of thesis and fees). June 19, 1885 : Earned Licentiate in Philosophy and Letters with a rating of {{blank-9}} (Sobresaliente).",
+      "text": "Secret Mission : To observe European life and governments to prepare for liberating the Filipino people. May 3, 1882 : The date Rizal departed on the Spanish Steamer {{blank-1}}. June 16, 1882 : Rizal reached Barcelona and wrote {{blank-2}} under the pen name {{blank-3}}. November 3, 1882 : Rizal enrolled at the Universidad Central de {{blank-4}}. Me Piden Versos : A sad poem written for the {{blank-5}}. March 1883 : Rizal joined the Masonic Lodge {{blank-6}} in Madrid under the name Dimasalang. June 17, 1883 : Rizal sojourned to {{blank-7}}. June 25, 1884 : The banquet where Rizal saluted {{blank-8}} (Spoliarium). June 21, 1884 : Rizal was conferred Licentiate in {{blank-9}}. June 19, 1885 : Rizal earned Licentiate in Philosophy and Letters with a rating of {{blank-10}}.",
       "keyTerms": [
         { "id": "blank-1", "term": "Salvadora" },
         { "id": "blank-2", "term": "Amor Patrio" },
@@ -52,13 +49,14 @@
         { "id": "blank-6", "term": "Acacia" },
         { "id": "blank-7", "term": "Paris" },
         { "id": "blank-8", "term": "Juan Luna" },
-        { "id": "blank-9", "term": "Excellent" }
+        { "id": "blank-9", "term": "Medicine" },
+        { "id": "blank-10", "term": "Excellent" }
       ]
     },
     {
       "id": "lakbay-europa",
       "title": "Lakbay sa Europa (1885-1887)",
-      "text": "November 1885 - February 1886 : Rizal worked in Paris as an assistant to Dr. {{blank-1}} to rapidly improve his surgical techniques in Ophthalmology. Pardo de Taveras' Home : Where Rizal socialized and played the flute, humbly admitting he had no natural aptitude for music. February 1886 : Moved to {{blank-2}} to work at the University Eye Hospital under Dr. Otto Becker. April 22, 1886 : Wrote {{blank-3}}, inspired by the spring flowers of the Neckar River that reminded him of Calamba. July 31, 1886 : Initiated a lifelong correspondence with Prof. {{blank-4}} by sending him the 1868 Spanish-Tagalog book Arithmetica. August 1886 : Arrived in Leipzig, working as a proof-reader, attending history/psychology lectures, and translating {{blank-5}} and Fairy Tales into Tagalog. November 1886 : Arrived in {{blank-6}}, a city he admired for its scientific atmosphere and lack of racial prejudice. March 21, 1887 : The publication date of {{blank-7}} in Berlin. The title means Touch Me Not (from the Gospel of St. John) and was dedicated To My Fatherland to expose the social cancer. {{blank-8}} : The Savior of the Noli who provided the funds to publish the novel when Rizal was at his poorest. May 11, 1887 : Start of the Grand Tour of Europe with Maximo Viola. May 13-16, 1887 : Stayed in Leitmeritz to finally meet Prof. {{blank-9}} in person. June 27, 1887 : Visited Rome, the Eternal City, deeply moved by the historical sights of the Caesars.",
+      "text": "November 1885 - February 1886 : Rizal worked in Paris as assistant to Dr. {{blank-1}}. February 1886 : Rizal moved to {{blank-2}} to work at the University Eye Hospital. April 22, 1886 : Wrote {{blank-3}}, inspired by flowers of the Neckar River. July 31, 1886 : Rizal began correspondence with Prof. {{blank-4}}. August 1886 : Rizal arrived in Leipzig and translated {{blank-5}} into Tagalog. November 1886 : Rizal arrived in {{blank-6}}. March 21, 1887 : The publication date of {{blank-7}} in Berlin. Maximo Viola : The {{blank-8}} who funded the Noli publication. May 11, 1887 : Start of the Grand Tour of Europe with Maximo Viola. May 13-16, 1887 : Rizal met Prof. {{blank-9}} in Leitmeritz. June 27, 1887 : Rizal visited {{blank-10}}.",
       "keyTerms": [
         { "id": "blank-1", "term": "Louis de Wecker" },
         { "id": "blank-2", "term": "Heidelberg" },
@@ -67,21 +65,22 @@
         { "id": "blank-5", "term": "William Tell" },
         { "id": "blank-6", "term": "Berlin" },
         { "id": "blank-7", "term": "Noli Me Tangere" },
-        { "id": "blank-8", "term": "Maximo Viola" },
-        { "id": "blank-9", "term": "Blumentritt" }
+        { "id": "blank-8", "term": "Savior" },
+        { "id": "blank-9", "term": "Blumentritt" },
+        { "id": "blank-10", "term": "Rome" }
       ]
     },
     {
       "id": "balik-pinas",
       "title": "Balik-Pinas (1887-1888)",
-      "text": "July 3, 1887 : The date Rizal left {{blank-1}}, France, to return to the Philippines. August 8, 1887 : The date Rizal arrived in Calamba with four primary objectives: 1) perform eye surgery on his mother, 2) defend oppressed countrymen, 3) observe Noli reception, and 4) find out why {{blank-2}} was silent. {{blank-3}} : The local nickname for Rizal because he was a doctor arriving from Germany (Aleman); he earned a lucrative $900 for his services. Calamba Civic Leadership : Opened a gymnasium to introduce European sports and discourage gambling; translated Von Wildernath's German poems into Tagalog. Governor General {{blank-4}} : Summoned Rizal to Malacañang due to the Noli controversy. Terrero asked for a copy, confessed he enjoyed reading it, found no legal problems, and assigned Lt. {{blank-5}} as a bodyguard to protect Rizal. Personal Sorrows : The death of his older sister {{blank-6}}, and the failure to see Leonor Rivera (opposed by his family for safety, and by her mother). Groundless Rumors : Enemies falsely labeled him a German spy, an agent of {{blank-7}}, a Protestant, a Mason, a witch, a soul beyond salvation. February 3, 1888 : Realizing his presence endangered his family, Rizal departed the country via a specific route: Hong Kong, Macao, Japan, and the {{blank-8}}.",
+      "text": "July 3, 1887 : Rizal left {{blank-1}}, France, to return to the Philippines. August 8, 1887 : Rizal arrived in Calamba with four objectives including performing eye surgery on his mother and defending oppressed countrymen. Doctor Uliman : The nickname for Rizal because he was a doctor from {{blank-2}}. Governor General {{blank-3}} : Summoned Rizal to Malacañang due to the Noli controversy and assigned {{blank-4}} as his bodyguard. Personal Sorrows : Death of his older sister {{blank-5}} and failure to see {{blank-6}}. Groundless Rumors : Enemies labeled him a German spy and agent of {{blank-7}}. February 3, 1888 : Rizal departed via Hong Kong, Macao, Japan, and the {{blank-8}}.",
       "keyTerms": [
         { "id": "blank-1", "term": "Marseilles" },
-        { "id": "blank-2", "term": "Leonor Rivera" },
-        { "id": "blank-3", "term": "Doctor Uliman" },
-        { "id": "blank-4", "term": "Emilio Terrero" },
-        { "id": "blank-5", "term": "Jose Taviel de Andrade" },
-        { "id": "blank-6", "term": "Olimpia" },
+        { "id": "blank-2", "term": "Germany" },
+        { "id": "blank-3", "term": "Emilio Terrero" },
+        { "id": "blank-4", "term": "Jose Taviel de Andrade" },
+        { "id": "blank-5", "term": "Olimpia" },
+        { "id": "blank-6", "term": "Leonor Rivera" },
         { "id": "blank-7", "term": "Bismarck" },
         { "id": "blank-8", "term": "United States" }
       ]
