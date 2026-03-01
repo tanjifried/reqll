@@ -78,9 +78,9 @@ class Player {
             console.log('Disconnected from server:', reason);
             this.showConnectionStatus(false);
             
-            // Show disconnected screen only for server-initiated disconnects or transport errors
-            // Socket.IO auto-reconnect handles network issues, ping timeout, etc.
-            if (reason === 'io server disconnect' || reason === 'transport close') {
+            // Only show disconnected screen for server-initiated disconnects
+            // Let Socket.IO auto-reconnect handle transient network issues
+            if (reason === 'io server disconnect') {
                 this.switchScreen('disconnected');
             }
         });
@@ -300,9 +300,21 @@ class Player {
             return;
         }
 
-        // Socket.IO handles reconnection automatically
-        // Just try to rejoin - if socket isn't connected, emit will queue or fail gracefully
-        this.attemptRejoin();
+        // Ensure socket is connected before trying to rejoin
+        if (!this.socket.connected) {
+            console.log('Socket not connected, waiting for reconnect...');
+            
+            // Listen for the next connect event
+            this.socket.once('connect', () => {
+                console.log('Socket connected, attempting to rejoin...');
+                this.attemptRejoin();
+            });
+            
+            // Trigger manual reconnect attempt
+            this.socket.connect();
+        } else {
+            this.attemptRejoin();
+        }
     }
 
     attemptRejoin() {
