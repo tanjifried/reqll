@@ -143,6 +143,14 @@ class Player {
         joinBtn.disabled = true;
         joinBtn.textContent = 'Joining...';
 
+        // Check if socket is connected
+        if (!this.socket.connected) {
+            this.showError('Connection lost. Please wait...');
+            joinBtn.disabled = false;
+            joinBtn.textContent = 'Join Game';
+            return;
+        }
+
         this.socket.emit('join-lobby', { roomCode, groupName }, (response) => {
             joinBtn.disabled = false;
             joinBtn.textContent = 'Join Game';
@@ -211,6 +219,12 @@ class Player {
         if (!answer.trim()) return;
 
         this.userAnswers.set(blankId, answer);
+
+        // Only submit if socket is connected
+        if (!this.socket.connected) {
+            console.log('Socket not connected, answer saved locally');
+            return;
+        }
 
         this.socket.emit('submit-answer', {
             roomCode: this.roomCode,
