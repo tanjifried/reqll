@@ -57,8 +57,9 @@ class Player {
 
     connectSocket() {
         this.socket = io({
+            transports: ['polling'], // Use polling only for better compatibility
             reconnection: true,
-            reconnectionAttempts: Infinity,
+            reconnectionAttempts: 10,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
             timeout: 20000

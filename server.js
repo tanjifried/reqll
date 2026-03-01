@@ -15,10 +15,14 @@ const io = socketIO(server, {
     origin: "*",
     methods: ["GET", "POST"]
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['websocket', 'polling'], // WebSocket preferred, polling as fallback
-  allowUpgrades: true
+  pingTimeout: 120000,
+  pingInterval: 30000,
+  transports: ['polling'], // Use polling only for better compatibility
+  allowUpgrades: false,
+  reconnection: true,
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000
 });
 
 const PORT = process.env.PORT || 3001;
