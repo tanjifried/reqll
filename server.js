@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const logger = require('./logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,7 +42,7 @@ function loadWheelConfigs() {
       return JSON.parse(data);
     }
   } catch (error) {
-    console.error('Error loading wheel configs:', error);
+    logger.error('Error loading wheel configs', { error: error.message });
   }
   return { presets: [], custom: [] };
 }
@@ -55,7 +56,7 @@ function saveWheelConfigs() {
     }
     fs.writeFileSync(WHEELS_CONFIG_FILE, JSON.stringify(wheelConfigs, null, 2));
   } catch (error) {
-    console.error('Error saving wheel configs:', error);
+    logger.error('Error saving wheel configs', { error: error.message });
   }
 }
 
@@ -103,7 +104,7 @@ setInterval(() => {
   const now = Date.now();
   for (const [code, lobby] of activeLobbies.entries()) {
     if (now - lobby.lastActivity > LOBBY_TIMEOUT_MS) {
-      console.log(`Lobby ${code} timed out, closing...`);
+      logger.warn('Lobby timed out, closing', { roomCode: code });
       io.to(code).emit('lobby-closed', { reason: 'timeout' });
       activeLobbies.delete(code);
     }
@@ -197,7 +198,7 @@ app.get('/api/content', (req, res) => {
 
     res.json({ files });
   } catch (error) {
-    console.error('Error loading content files:', error);
+    logger.error('Error loading content files', { error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -220,7 +221,7 @@ app.get('/api/content/:filename', (req, res) => {
     const content = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
     res.json(content);
   } catch (error) {
-    console.error('Error reading content file:', error);
+    logger.error('Error reading content file', { error: error.message, filename: req.params.filename });
     res.status(500).json({ error: error.message || 'Failed to read file' });
   }
 });
@@ -254,7 +255,7 @@ app.post('/api/content', (req, res) => {
       name: fullFilename.replace('.json', '')
     });
   } catch (error) {
-    console.error('Error saving content file:', error);
+    logger.error('Error saving content file', { error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
@@ -279,7 +280,7 @@ app.delete('/api/content/:filename', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting content file:', error);
+    logger.error('Error deleting content file', { error: error.message, filename: req.params.filename });
     res.status(500).json({ error: error.message });
   }
 });
@@ -291,14 +292,82 @@ app.get('/api/qr/:roomCode', async (req, res) => {
     const url = `http://${ip}:${PORT}/player.html?room=${req.params.roomCode}`;
     const qrCode = await QRCode.toDataURL(url);
     res.json({ qrCode, url });
+  }   catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Logs API endpoints
+
+// Get logs
+app.get('/api/logs', (req, res) => {
+  try {
+    const { page, pageSize, level } = req.query;
+    const p = parseInt(page) || 0;
+    const ps = parseInt(pageSize) || 50;
+
+    let logsData;
+    if (level) {
+      logsData = {
+        logs: logger.getLogsByLevel(level, ps),
+        total: logger.getLogsByLevel(level).length
+      };
+    } else {
+      logsData = logger.getLogs(p, ps);
+    }
+
+    res.json(logsData);
   } catch (error) {
+    logger.error('Error fetching logs', { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get recent logs from memory
+app.get('/api/logs/recent', (req, res) => {
+  try {
+    const { limit } = req.query;
+    const logs = logger.getRecentLogs(parseInt(limit) || 100);
+    res.json({ logs });
+  } catch (error) {
+    logger.error('Error fetching recent logs', { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get logs by level
+app.get('/api/logs/level/:level', (req, res) => {
+  try {
+    const { limit } = req.query;
+    const { level } = req.params;
+    const validLevels = ['debug', 'info', 'warn', 'error'];
+    
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({ error: 'Invalid level' });
+    }
+
+    const logs = logger.getLogsByLevel(level, parseInt(limit) || 100);
+    res.json({ logs, count: logs.length });
+  } catch (error) {
+    logger.error('Error fetching logs by level', { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear logs from memory
+app.delete('/api/logs', (req, res) => {
+  try {
+    logger.clearMemory();
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error clearing logs', { error: error.message });
     res.status(500).json({ error: error.message });
   }
 });
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+      logger.info('Client connected', { socketId: socket.id });
 
   // Host creates a lobby
   socket.on('create-lobby', (data, callback) => {
@@ -332,8 +401,9 @@ io.on('connection', (socket) => {
         joinUrl
       });
 
-      console.log(`Lobby created: ${roomCode} by ${socket.id}`);
+      logger.info('Lobby created', { roomCode, socketId: socket.id });
     } catch (error) {
+      logger.error('Error creating lobby', { error: error.message, socketId: socket.id });
       callback({ error: error.message });
     }
   });
@@ -390,7 +460,7 @@ io.on('connection', (socket) => {
         content: lobby.status === 'active' ? lobby.content : null
       });
 
-      console.log(`Group ${groupName} joined lobby ${roomCode}`);
+      logger.info('Group joined lobby', { groupName, roomCode });
     } catch (error) {
       callback({ error: error.message });
     }
@@ -426,8 +496,9 @@ io.on('connection', (socket) => {
       });
 
       callback({ success: true });
-      console.log(`Content loaded in lobby ${roomCode}`);
+      logger.info('Content loaded', { roomCode, contentTitle: content?.title });
     } catch (error) {
+      logger.error('Error loading content', { error: error.message, roomCode });
       callback({ error: error.message });
     }
   });
@@ -482,7 +553,7 @@ io.on('connection', (socket) => {
       // Broadcast correct answers to all groups
       io.to(roomCode).emit('answers-revealed', { answers });
     } catch (error) {
-      console.error('Error revealing answers:', error);
+      logger.error('Error revealing answers', { error: error.message, roomCode });
     }
   });
 
@@ -507,7 +578,7 @@ io.on('connection', (socket) => {
         result
       });
     } catch (error) {
-      console.error('Error spinning wheel:', error);
+      logger.error('Error spinning wheel', { error: error.message, roomCode, wheelId: data.wheelId });
     }
   });
 
@@ -524,7 +595,7 @@ io.on('connection', (socket) => {
       // Broadcast wheel update to all groups
       io.to(roomCode).emit('wheels-updated', { wheels });
     } catch (error) {
-      console.error('Error updating wheels:', error);
+      logger.error('Error updating wheels', { error: error.message, roomCode });
     }
   });
 
@@ -555,7 +626,7 @@ io.on('connection', (socket) => {
 
   // Handle disconnect
   socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
+    logger.info('Client disconnected', { socketId: socket.id, roomCode: socket.roomCode, groupName: socket.groupName });
 
     // Check if this is a group
     if (socket.roomCode && socket.groupName) {
@@ -574,7 +645,7 @@ io.on('connection', (socket) => {
           }))
         });
 
-        console.log(`Group ${socket.groupName} left lobby ${socket.roomCode}`);
+        logger.info('Group left lobby', { groupName: socket.groupName, roomCode: socket.roomCode });
       }
     }
   });
