@@ -1,0 +1,36 @@
+{
+  "title": "World War II Timeline",
+  "text": "World War II began in {{blank-1}} when Germany invaded {{blank-2}}. The United States entered the war after the attack on {{blank-3}} in 1941. The Allied invasion of {{blank-4}} on D-Day was a turning point in the war. The war in Europe ended with Germany's surrender in {{blank-5}}. The war in the Pacific ended after the {{blank-6}} bombings.",
+  "keyTerms": [
+    {
+      "id": "blank-1",
+      "term": "1939",
+      "alternatives": []
+    },
+    {
+      "id": "blank-2",
+      "term": "Poland",
+      "alternatives": []
+    },
+    {
+      "id": "blank-3",
+      "term": "Pearl Harbor",
+      "alternatives": ["Hawaii"]
+    },
+    {
+      "id": "blank-4",
+      "term": "Normandy",
+      "alternatives": ["France"]
+    },
+    {
+      "id": "blank-5",
+      "term": "1945",
+      "alternatives": []
+    },
+    {
+      "id": "blank-6",
+      "term": "Hiroshima and Nagasaki",
+      "alternatives": ["atomic bomb", "nuclear"]
+    }
+  ]
+}

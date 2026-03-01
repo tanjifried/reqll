@@ -1,0 +1,31 @@
+{
+  "title": "Algebra Terms",
+  "text": "A mathematical statement that two expressions are equal is called an {{blank-1}}. The part of an equation that contains a variable and its coefficient is a {{blank-2}}. To solve for x, you need to {{blank-3}} the equation. When you move a term to the other side of the equals sign, you must {{blank-4}} it. An equation of the form y = mx + b represents a {{blank-5}}.",
+  "keyTerms": [
+    {
+      "id": "blank-1",
+      "term": "equation",
+      "alternatives": []
+    },
+    {
+      "id": "blank-2",
+      "term": "term",
+      "alternatives": ["algebraic term"]
+    },
+    {
+      "id": "blank-3",
+      "term": "isolate",
+      "alternatives": ["isolate the variable"]
+    },
+    {
+      "id": "blank-4",
+      "term": "reverse the operation",
+      "alternatives": ["do the opposite", "inverse operation"]
+    },
+    {
+      "id": "blank-5",
+      "term": "linear equation",
+      "alternatives": ["linear function", "line"]
+    }
+  ]
+}

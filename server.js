@@ -169,6 +169,121 @@ app.delete('/api/wheels/:id', (req, res) => {
   }
 });
 
+// Content API endpoints
+
+// Get all available content files
+app.get('/api/content', (req, res) => {
+  try {
+    const contentDir = path.join(__dirname, 'data', 'blank-reviewers');
+    
+    if (!fs.existsSync(contentDir)) {
+      return res.json({ files: [] });
+    }
+
+    const files = fs.readdirSync(contentDir)
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        const filePath = path.join(contentDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          filename: file,
+          filepath: filePath,
+          name: file.replace(/\.json$/, '').replace(/-/g, ' '),
+          size: stats.size,
+          modifiedAt: stats.mtime
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json({ files });
+  } catch (error) {
+    console.error('Error loading content files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get specific content file
+app.get('/api/content/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const contentPath = path.join(__dirname, 'data', 'blank-reviewers', filename);
+
+    // Security: prevent directory traversal
+    if (filename.includes('..') || !filename.endsWith('.json')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    if (!fs.existsSync(contentPath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const content = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
+    res.json(content);
+  } catch (error) {
+    console.error('Error reading content file:', error);
+    res.status(500).json({ error: error.message || 'Failed to read file' });
+  }
+});
+
+// Save new content file
+app.post('/api/content', (req, res) => {
+  try {
+    const { filename, content } = req.body;
+
+    if (!filename || !content) {
+      return res.status(400).json({ error: 'Filename and content are required' });
+    }
+
+    // Sanitize filename
+    const safeFilename = filename.replace(/[^a-z0-9-]/gi, '_');
+    const fullFilename = safeFilename.endsWith('.json') ? safeFilename : `${safeFilename}.json`;
+    
+    const contentDir = path.join(__dirname, 'data', 'blank-reviewers');
+    const filePath = path.join(contentDir, fullFilename);
+
+    // Ensure directory exists
+    if (!fs.existsSync(contentDir)) {
+      fs.mkdirSync(contentDir, { recursive: true });
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2));
+
+    res.json({ 
+      success: true, 
+      filename: fullFilename,
+      name: fullFilename.replace('.json', '')
+    });
+  } catch (error) {
+    console.error('Error saving content file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete content file
+app.delete('/api/content/:filename', (req, res) => {
+  try {
+    const filename = req.params.filename;
+
+    // Security: prevent directory traversal
+    if (filename.includes('..')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const contentPath = path.join(__dirname, 'data', 'blank-reviewers', filename);
+
+    if (!fs.existsSync(contentPath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    fs.unlinkSync(contentPath);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting content file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Generate QR code for room
 app.get('/api/qr/:roomCode', async (req, res) => {
   try {

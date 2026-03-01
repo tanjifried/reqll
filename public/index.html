@@ -4,34 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>reqll - Host Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <link rel="stylesheet" href="css/host.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="app">
-        <!-- Login/Create Screen -->
-        <div id="login-screen" class="screen active">
-            <div class="login-container">
-                <div class="brand">
-                    <span class="logo">🎯</span>
-                    <h1>reqll</h1>
-                </div>
-                
-                <p class="tagline">Classroom engagement tool for group learning</p>
-                
-                <button id="create-lobby-btn" class="btn btn-primary">
-                    Create New Lobby
-                </button>
-                
-                <div id="loading-indicator" class="loading hidden">
-                    <div class="spinner"></div>
-                    <p>Creating lobby...</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Host Dashboard -->
-        <div id="dashboard-screen" class="screen">
+        <div id="dashboard-screen" class="screen active">
             <div class="dashboard">
                 <!-- Sidebar -->
                 <aside class="sidebar">
@@ -105,12 +85,25 @@
                         </div>
 
                         <div class="content-controls">
-                            <input type="file" id="content-file" accept=".json,.md" hidden>
-                            
-                            <button class="btn btn-secondary" onclick="document.getElementById('content-file').click()">
-                                📁 Load Content
-                            </button>
-                            
+                            <div class="content-selector">
+                                <label>Select from saved:</label>
+                                <select id="content-select">
+                                    <option value="">Loading...</option>
+                                </select>
+                                <button id="load-selected-content-btn" class="btn btn-secondary" disabled>
+                                    Load Selected
+                                </button>
+                            </div>
+
+                            <div class="content-upload">
+                                <label>Or upload new:</label>
+                                <input type="file" id="content-file" accept=".json,.md" hidden>
+                                <button class="btn btn-secondary" onclick="document.getElementById('content-file').click()">
+                                    📁 Choose File
+                                </button>
+                                <span id="selected-file-name" class="file-name"></span>
+                            </div>
+
                             <button id="broadcast-content-btn" class="btn btn-primary" disabled>
                                 📡 Broadcast to Groups
                             </button>
@@ -119,7 +112,7 @@
                         <div id="content-preview" class="content-preview">
                             <div class="empty-state">
                                 <p>No content loaded</p>
-                                <p class="hint">Load a JSON or Markdown file to begin</p>
+                                <p class="hint">Select from saved content or upload a new file</p>
                             </div>
                         </div>
 

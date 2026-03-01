@@ -1,0 +1,31 @@
+{
+  "title": "Asian Geography",
+  "text": "The largest continent in the world is {{blank-1}}. The most populous country is {{blank-2}} with over 1.4 billion people. The {{blank-3}} is the world's third largest ocean and borders Asia. The {{blank-4}} mountain range is the highest in the world, home to Mount Everest. The capital of {{blank-5}} is known for its mix of modern and traditional architecture.",
+  "keyTerms": [
+    {
+      "id": "blank-1",
+      "term": "Asia",
+      "alternatives": []
+    },
+    {
+      "id": "blank-2",
+      "term": "China",
+      "alternatives": ["PRC", "People's Republic of China"]
+    },
+    {
+      "id": "blank-3",
+      "term": "Indian Ocean",
+      "alternatives": []
+    },
+    {
+      "id": "blank-4",
+      "term": "Himalayas",
+      "alternatives": ["Himalaya"]
+    },
+    {
+      "id": "blank-5",
+      "term": "Japan",
+      "alternatives": []
+    }
+  ]
+}

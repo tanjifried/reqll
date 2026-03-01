@@ -1,0 +1,31 @@
+{
+  "title": "Cell Biology Review",
+  "text": "The {{blank-1}} is composed of a {{blank-2}} that regulates what enters and exits the cell. Within the cell, the {{blank-3}} contains the genetic material. The {{blank-4}} are responsible for producing ATP through cellular respiration. {{blank-5}} synthesize proteins by translating mRNA.",
+  "keyTerms": [
+    {
+      "id": "blank-1",
+      "term": "cell membrane",
+      "alternatives": ["plasma membrane"]
+    },
+    {
+      "id": "blank-2",
+      "term": "phospholipid bilayer",
+      "alternatives": ["lipid bilayer"]
+    },
+    {
+      "id": "blank-3",
+      "term": "nucleus",
+      "alternatives": []
+    },
+    {
+      "id": "blank-4",
+      "term": "mitochondria",
+      "alternatives": ["mitochondrion"]
+    },
+    {
+      "id": "blank-5",
+      "term": "Ribosomes",
+      "alternatives": ["ribosome"]
+    }
+  ]
+}

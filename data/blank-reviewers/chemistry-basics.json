@@ -1,0 +1,31 @@
+{
+  "title": "Chemistry Basics",
+  "text": "The smallest unit of an element that retains its chemical properties is a {{blank-1}}. A substance formed by the chemical combination of two or more elements is called a {{blank-2}}. The number of {{blank-3}} in an atom determines its chemical properties. The positively charged center of an atom is the {{blank-4}}. Negatively charged particles that orbit the nucleus are called {{blank-5}}.",
+  "keyTerms": [
+    {
+      "id": "blank-1",
+      "term": "atom",
+      "alternatives": []
+    },
+    {
+      "id": "blank-2",
+      "term": "compound",
+      "alternatives": ["molecule"]
+    },
+    {
+      "id": "blank-3",
+      "term": "electrons",
+      "alternatives": ["protons", "neutrons"]
+    },
+    {
+      "id": "blank-4",
+      "term": "nucleus",
+      "alternatives": ["atomic nucleus"]
+    },
+    {
+      "id": "blank-5",
+      "term": "electrons",
+      "alternatives": ["electron shells"]
+    }
+  ]
+}

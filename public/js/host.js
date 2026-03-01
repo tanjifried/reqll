@@ -25,6 +25,7 @@ class Host {
         this.bindEvents();
         this.connectSocket();
         this.loadWheelPresets();
+        this.loadContentFiles();
     }
 
     connectSocket() {
@@ -33,6 +34,8 @@ class Host {
         this.socket.on('connect', () => {
             console.log('Connected to server');
             this.showConnectionStatus(true);
+            // Auto-create lobby on connection
+            this.createLobby();
         });
 
         this.socket.on('disconnect', () => {
@@ -54,11 +57,6 @@ class Host {
     }
 
     bindEvents() {
-        // Login screen
-        document.getElementById('create-lobby-btn').addEventListener('click', () => {
-            this.createLobby();
-        });
-
         // Sidebar navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
@@ -83,9 +81,27 @@ class Host {
             }
         });
 
-        // Content tab
+        // Content tab - file upload
         document.getElementById('content-file').addEventListener('change', (e) => {
-            this.handleContentFile(e.target.files[0]);
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('selected-file-name').textContent = file.name;
+                this.handleContentFile(file);
+            }
+        });
+
+        // Content tab - select from saved
+        document.getElementById('content-select').addEventListener('change', (e) => {
+            const select = e.target;
+            const loadBtn = document.getElementById('load-selected-content-btn');
+            loadBtn.disabled = !select.value;
+        });
+
+        document.getElementById('load-selected-content-btn').addEventListener('click', async () => {
+            const filename = document.getElementById('content-select').value;
+            if (filename) {
+                await this.loadSelectedContent(filename);
+            }
         });
 
         document.getElementById('broadcast-content-btn').addEventListener('click', () => {
@@ -147,15 +163,10 @@ class Host {
     }
 
     createLobby() {
-        document.getElementById('create-lobby-btn').classList.add('hidden');
-        document.getElementById('loading-indicator').classList.remove('hidden');
-
         this.socket.emit('create-lobby', {}, (response) => {
-            document.getElementById('loading-indicator').classList.add('hidden');
-
             if (response.error) {
+                console.error('Error creating lobby:', response.error);
                 alert('Error creating lobby: ' + response.error);
-                document.getElementById('create-lobby-btn').classList.remove('hidden');
                 return;
             }
 
@@ -168,10 +179,6 @@ class Host {
 
             // Load QR code
             this.loadQRCode();
-
-            // Switch to dashboard
-            document.getElementById('login-screen').classList.remove('active');
-            document.getElementById('dashboard-screen').classList.add('active');
 
             console.log(`Lobby created: ${this.roomCode}`);
         });
@@ -276,6 +283,23 @@ class Host {
         reader.readAsText(file);
     }
 
+    async loadSelectedContent(filename) {
+        try {
+            const response = await fetch(`/api/content/${filename}`);
+            if (!response.ok) {
+                throw new Error('Failed to load content');
+            }
+            const content = await response.json();
+            
+            this.currentContent = content;
+            this.showContentPreview(content);
+            document.getElementById('broadcast-content-btn').disabled = false;
+        } catch (error) {
+            console.error('Error loading selected content:', error);
+            alert('Error loading content file');
+        }
+    }
+
     parseMarkdown(markdown) {
         const lines = markdown.split('\n');
         let title = 'Untitled';
@@ -303,6 +327,27 @@ class Host {
         });
 
         return { title, text: text.trim(), keyTerms };
+    }
+
+    async loadContentFiles() {
+        try {
+            const response = await fetch('/api/content');
+            const data = await response.json();
+
+            const select = document.getElementById('content-select');
+            
+            if (data.files && data.files.length > 0) {
+                select.innerHTML = '<option value="">-- Select content --</option>' +
+                    data.files.map(file => 
+                        `<option value="${file.filename}">${file.name}</option>`
+                    ).join('');
+            } else {
+                select.innerHTML = '<option value="">No content files found</option>';
+            }
+        } catch (error) {
+            console.error('Error loading content files:', error);
+            document.getElementById('content-select').innerHTML = '<option value="">Error loading content</option>';
+        }
     }
 
     showContentPreview(content) {
