@@ -203,6 +203,7 @@ class Player {
                 this.loadContent(response.content);
             } else {
                 this.switchScreen('waiting');
+                this.showToast('Joined successfully! Waiting for host...', 'success');
             }
         });
     }
@@ -218,9 +219,14 @@ class Player {
             this.topicAnswers = {};
             this.revealedTopics = new Set();
 
+            // Show room code in header
+            document.getElementById('display-room-code').textContent = this.roomCode;
+
             // Check if multi-topic content
             if (content.topics && Array.isArray(content.topics) && content.topics.length > 0) {
                 this.topics = content.topics;
+                document.getElementById('topic-tabs').classList.remove('hidden');
+                document.getElementById('topic-progress').classList.remove('hidden');
                 this.renderTabs();
                 this.loadTopic(0);
             } else {
@@ -232,24 +238,27 @@ class Player {
                     keyTerms: content.keyTerms || []
                 }];
                 document.getElementById('topic-tabs').classList.add('hidden');
+                document.getElementById('topic-progress').classList.add('hidden');
                 this.loadTopic(0);
             }
 
             document.getElementById('answers-section').classList.add('hidden');
             document.getElementById('wheel-result').classList.add('hidden');
+            
+            this.showToast('Content loaded!', 'success');
         } catch (error) {
             console.error('Error loading content:', error);
-            alert('Error loading content. Please refresh the page.');
+            this.showToast('Error loading content. Please refresh.', 'error');
         }
     }
 
     renderTabs() {
         const tabsContainer = document.getElementById('topic-tabs');
-        tabsContainer.classList.remove('hidden');
         
         tabsContainer.innerHTML = this.topics.map((topic, index) => `
             <button class="tab ${index === this.currentTopicIndex ? 'active' : ''}" 
                     data-topic-index="${index}">
+                <span class="tab-number">${index + 1}</span>
                 ${topic.title}
             </button>
         `).join('');
@@ -261,6 +270,21 @@ class Player {
                 this.switchTopic(topicIndex);
             });
         });
+    }
+
+    updateProgress() {
+        const currentTopic = this.topics[this.currentTopicIndex];
+        if (!currentTopic) return;
+
+        const totalBlanks = currentTopic.keyTerms?.length || 0;
+        const savedAnswers = this.topicAnswers[currentTopic.id] || {};
+        const filledBlanks = Object.keys(savedAnswers).filter(k => savedAnswers[k] && savedAnswers[k].trim()).length;
+
+        document.getElementById('filled-count').textContent = filledBlanks;
+        document.getElementById('total-count').textContent = totalBlanks;
+
+        const percentage = totalBlanks > 0 ? (filledBlanks / totalBlanks) * 100 : 0;
+        document.getElementById('progress-fill').style.width = percentage + '%';
     }
 
     switchTopic(topicIndex) {
@@ -362,6 +386,9 @@ class Player {
         } else {
             document.getElementById('answers-section').classList.add('hidden');
         }
+
+        // Update progress
+        this.updateProgress();
     }
 
     submitAnswer(topicId, blankId, answer) {
@@ -372,6 +399,9 @@ class Player {
             this.topicAnswers[topicId] = {};
         }
         this.topicAnswers[topicId][blankId] = answer;
+
+        // Update progress
+        this.updateProgress();
 
         // Also maintain backward compatibility
         this.userAnswers.set(blankId, answer);
@@ -488,13 +518,33 @@ class Player {
         const errorEl = document.getElementById('join-error');
         errorEl.textContent = message;
         errorEl.style.display = 'block';
-        setTimeout(() => errorEl.style.display = 'none', 3000);
+        setTimeout(() => errorEl.style.display = 'none', 4000);
+    }
+
+    showToast(message, type = 'info') {
+        // Remove existing toast
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     showConnectionStatus(connected) {
         const statusEl = document.querySelector('.connection-status');
         if (statusEl) {
-            statusEl.textContent = connected ? '● Connected' : '● Disconnected';
+            const textEl = statusEl.querySelector('.status-text');
+            if (textEl) {
+                textEl.textContent = connected ? 'Connected' : 'Disconnected';
+            }
             statusEl.className = `connection-status ${connected ? 'connected' : 'disconnected'}`;
         }
     }

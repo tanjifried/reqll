@@ -12,7 +12,9 @@
         <!-- Join Screen -->
         <div id="join-screen" class="screen active">
             <div class="join-container">
-                <h1>🎯 Join Game</h1>
+                <div class="logo">🎯</div>
+                <h1>reqll</h1>
+                <p class="subtitle">Join your classroom game</p>
                 
                 <div class="form-group">
                     <label>Room Code</label>
@@ -24,7 +26,7 @@
                     <input type="text" id="group-name" placeholder="Enter your group name" maxlength="20">
                 </div>
 
-                <button id="join-btn" class="btn btn-primary">Join Game</button>
+                <button id="join-btn" class="btn btn-primary">🚀 Join Game</button>
                 
                 <div id="join-error" class="error-message"></div>
             </div>
@@ -35,7 +37,7 @@
             <div class="waiting-container">
                 <div class="spinner"></div>
                 <h2>Waiting for Host...</h2>
-                <p id="waiting-group-name"></p>
+                <p class="group-name" id="waiting-group-name"></p>
                 <p class="hint">The host will start the game soon</p>
             </div>
         </div>
@@ -44,13 +46,30 @@
         <div id="game-screen" class="screen">
             <div class="game-container">
                 <header class="player-header">
-                    <h2 id="player-group-name">Group Name</h2>
-                    <div class="connection-status connected">● Connected</div>
+                    <div class="group-info">
+                        <h2 id="player-group-name">Group Name</h2>
+                        <p class="room-code">Room: <span id="display-room-code">------</span></p>
+                    </div>
+                    <div class="connection-status connected">
+                        <span class="dot"></span>
+                        <span class="status-text">Connected</span>
+                    </div>
                 </header>
 
                 <!-- Topic Tabs -->
                 <div id="topic-tabs" class="topic-tabs hidden">
                     <!-- Tabs loaded dynamically -->
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="topic-progress" class="topic-progress hidden">
+                    <div class="progress-header">
+                        <span class="progress-label">📝 Progress</span>
+                        <span class="progress-count"><span id="filled-count">0</span>/<span id="total-count">0</span> blanks filled</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
                 </div>
 
                 <!-- Document Container -->
@@ -64,12 +83,15 @@
 
                 <!-- Answers Section (per topic) -->
                 <div id="answers-section" class="answers-section hidden">
-                    <h3>✅ Correct Answers</h3>
+                    <div class="section-header">
+                        <h3>✅ Correct Answers</h3>
+                    </div>
                     <div id="revealed-content"></div>
                 </div>
 
                 <div id="wheel-result" class="wheel-result hidden">
-                    <h3>🎡 Wheel Result</h3>
+                    <div class="result-icon">🎡</div>
+                    <h3>Wheel Result</h3>
                     <div class="result-value">-</div>
                 </div>
             </div>
@@ -78,9 +100,10 @@
         <!-- Disconnected Screen -->
         <div id="disconnected-screen" class="screen">
             <div class="disconnected-container">
-                <h2>⚠️ Disconnected</h2>
-                <p>Connection to the game was lost.</p>
-                <button id="reconnect-btn" class="btn btn-primary">Try Reconnect</button>
+                <div class="disconnect-icon">📡</div>
+                <h2>Connection Lost</h2>
+                <p>Connection to the game was lost.<br>Please check your internet and try again.</p>
+                <button id="reconnect-btn" class="btn btn-primary">🔄 Try Reconnect</button>
             </div>
         </div>
     </div>
