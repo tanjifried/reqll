@@ -10,6 +10,8 @@ class Host {
         this.hostToken = null;
         this.groups = new Map();
         this.currentContent = null;
+        this.topics = []; // Array of topics for multi-topic content
+        this.currentTopicIndex = 0; // Current active topic
         this.wheels = new Map();
         this.wheelData = null;
         this.dependentMode = true;
@@ -290,7 +292,9 @@ class Host {
         const groupCard = document.querySelector(`.group-card[data-group="${groupName}"]`);
         if (groupCard) {
             const stats = groupCard.querySelector('.group-answers');
-            const totalBlanks = this.currentContent?.keyTerms?.length || 0;
+            // Get total blanks from current topic
+            const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+            const totalBlanks = currentTopic?.keyTerms?.length || 0;
             stats.textContent = `${totalAnswers}/${totalBlanks} answered`;
         }
     }
@@ -310,6 +314,16 @@ class Host {
                 }
 
                 this.currentContent = content;
+                
+                // Set up topics - support both multi-topic and single-topic formats
+                if (content.topics && Array.isArray(content.topics)) {
+                    this.topics = content.topics;
+                } else {
+                    // Single topic - wrap in array for consistency
+                    this.topics = [content];
+                }
+                this.currentTopicIndex = 0;
+                
                 this.showContentPreview(content);
                 document.getElementById('broadcast-content-btn').disabled = false;
             } catch (error) {
@@ -329,6 +343,16 @@ class Host {
             const content = await response.json();
             
             this.currentContent = content;
+            
+            // Set up topics - support both multi-topic and single-topic formats
+            if (content.topics && Array.isArray(content.topics)) {
+                this.topics = content.topics;
+            } else {
+                // Single topic - wrap in array for consistency
+                this.topics = [content];
+            }
+            this.currentTopicIndex = 0;
+            
             this.showContentPreview(content);
             document.getElementById('broadcast-content-btn').disabled = false;
         } catch (error) {
@@ -390,15 +414,26 @@ class Host {
     showContentPreview(content) {
         const container = document.getElementById('content-preview');
         
-        let html = content.text || '';
-        content.keyTerms?.forEach(term => {
+        // Get current topic - either from multi-topic or single topic format
+        let currentTopic;
+        if (this.topics && this.topics.length > 0) {
+            currentTopic = this.topics[this.currentTopicIndex];
+        } else {
+            currentTopic = content;
+        }
+        
+        let html = currentTopic.text || '';
+        currentTopic.keyTerms?.forEach(term => {
             html = html.replace(`{{${term.id}}}`, `<span class="blank">[${term.term}]</span>`);
         });
 
+        const totalTopics = this.topics?.length || 1;
+        
         container.innerHTML = `
             <div class="content-header">
-                <h3>${content.title}</h3>
-                <span class="blank-count">${content.keyTerms?.length || 0} blanks</span>
+                <h3>${currentTopic.title || content.title}</h3>
+                <span class="topic-info">Topic ${this.currentTopicIndex + 1} of ${totalTopics}</span>
+                <span class="blank-count">${currentTopic.keyTerms?.length || 0} blanks</span>
             </div>
             <div class="content-body">${html}</div>
         `;
@@ -438,7 +473,9 @@ class Host {
 
     updateProgressList() {
         const container = document.getElementById('progress-list');
-        const totalBlanks = this.currentContent?.keyTerms?.length || 0;
+        // Get total blanks from current topic
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        const totalBlanks = currentTopic?.keyTerms?.length || 0;
 
         container.innerHTML = Array.from(this.groups.values()).map(group => `
             <div class="progress-item" data-group="${group.name}">
@@ -459,7 +496,25 @@ class Host {
             return;
         }
 
-        const answers = this.currentContent.keyTerms.map(term => ({
+        // Get current topic - either from multi-topic or single topic format
+        let currentTopic;
+        let topicId;
+        
+        if (this.topics && this.topics.length > 0) {
+            // Multi-topic content
+            currentTopic = this.topics[this.currentTopicIndex];
+            topicId = currentTopic?.id;
+        } else {
+            // Single topic (backward compatible)
+            currentTopic = this.currentContent;
+        }
+
+        if (!currentTopic || !currentTopic.keyTerms) {
+            alert('No content to reveal');
+            return;
+        }
+
+        const answers = currentTopic.keyTerms.map(term => ({
             blankId: term.id,
             answer: term.term
         }));
@@ -467,19 +522,22 @@ class Host {
         this.socket.emit('reveal-answers', {
             roomCode: this.roomCode,
             hostToken: this.hostToken,
-            answers
+            answers,
+            topicId
         });
 
-        // Update preview to show answers
+        // Update preview to show answers for current topic
         const container = document.getElementById('content-preview');
-        let html = this.currentContent.text || '';
-        this.currentContent.keyTerms?.forEach(term => {
-            html = html.replace(`{{${term.id}}}`, `<span class="blank revealed">${term.term}</span>`);
-        });
+        if (container) {
+            let html = currentTopic.text || '';
+            currentTopic.keyTerms?.forEach(term => {
+                html = html.replace(`{{${term.id}}}`, `<span class="blank revealed">${term.term}</span>`);
+            });
 
-        const body = container.querySelector('.content-body');
-        if (body) {
-            body.innerHTML = html;
+            const body = container.querySelector('.content-body');
+            if (body) {
+                body.innerHTML = html;
+            }
         }
 
         alert('Answers revealed to all groups!');
