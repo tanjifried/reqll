@@ -28,8 +28,21 @@ class Player {
         if (savedRoomCode && savedGroupName) {
             this.roomCode = savedRoomCode;
             this.groupName = savedGroupName;
-            // Auto-reconnect after socket connects
         }
+        
+        // Start heartbeat to keep connection alive
+        this.startHeartbeat();
+    }
+
+    startHeartbeat() {
+        // Send heartbeat every 15 seconds to keep connection alive
+        setInterval(() => {
+            if (this.socket && this.socket.connected && this.roomCode) {
+                this.socket.emit('ping-server', Date.now(), (response) => {
+                    // Connection is alive
+                });
+            }
+        }, 15000);
     }
 
     parseUrlParams() {
@@ -57,7 +70,13 @@ class Player {
     }
 
     connectSocket() {
-        this.socket = io();
+        this.socket = io({
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
 
         this.socket.on('connect', () => {
             console.log('Connected to server');
@@ -69,9 +88,28 @@ class Player {
             }
         });
 
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        this.socket.on('disconnect', (reason) => {
+            console.log('Disconnected from server:', reason);
             this.showConnectionStatus(false);
+            
+            // Only show disconnected screen if manually not trying to reconnect
+            // Auto-reconnect will handle transient disconnects
+            if (reason === 'io server disconnect') {
+                this.switchScreen('disconnected');
+            }
+            // For client-side disconnects, Socket.IO will auto-reconnect
+        });
+
+        this.socket.on('reconnect', (attemptNumber) => {
+            console.log('Reconnected after', attemptNumber, 'attempts');
+            // Try to rejoin lobby automatically
+            if (this.roomCode && this.groupName) {
+                this.reconnect();
+            }
+        });
+
+        this.socket.on('reconnect_failed', () => {
+            console.log('Reconnection failed');
             this.switchScreen('disconnected');
         });
 
@@ -89,6 +127,7 @@ class Player {
 
         this.socket.on('lobby-closed', () => {
             alert('The lobby has been closed.');
+            this.clearSession();
             window.location.reload();
         });
     }
@@ -114,9 +153,21 @@ class Player {
         sessionStorage.setItem('roomCode', this.roomCode);
         sessionStorage.setItem('groupName', this.groupName);
 
+        // Disable button to prevent double-join
+        const joinBtn = document.getElementById('join-btn');
+        joinBtn.disabled = true;
+        joinBtn.textContent = 'Joining...';
+
         this.socket.emit('join-lobby', { roomCode, groupName }, (response) => {
+            joinBtn.disabled = false;
+            joinBtn.textContent = 'Join Game';
+            
             if (response.error) {
                 this.showError(response.error);
+                // Clear session on error (except for lobby not found)
+                if (response.error !== 'Lobby not found') {
+                    this.clearSession();
+                }
                 return;
             }
 
@@ -259,26 +310,51 @@ class Player {
             this.groupName = sessionStorage.getItem('groupName');
         }
 
-        if (this.roomCode && this.groupName) {
-            this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
-                if (response.error) {
-                    this.showError(response.error);
-                    this.switchScreen('join');
-                    return;
-                }
+        if (!this.roomCode || !this.groupName) {
+            this.switchScreen('join');
+            return;
+        }
 
-                document.getElementById('player-group-name').textContent = this.groupName;
-                document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
-
-                if (response.lobbyStatus === 'active' && response.content) {
-                    this.loadContent(response.content);
-                } else {
-                    this.switchScreen('waiting');
-                }
+        // Ensure socket is connected before trying to rejoin
+        if (!this.socket.connected) {
+            console.log('Socket not connected, attempting to reconnect...');
+            this.socket.connect();
+            
+            // Wait for connection before rejoining
+            this.socket.once('connect', () => {
+                this.attemptRejoin();
             });
         } else {
-            this.switchScreen('join');
+            this.attemptRejoin();
         }
+    }
+
+    attemptRejoin() {
+        this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
+            if (response.error) {
+                console.log('Failed to rejoin:', response.error);
+                this.showError(response.error);
+                // Don't switch to join - stay on disconnected, allow retry
+                return;
+            }
+
+            console.log('Successfully rejoined lobby');
+            document.getElementById('player-group-name').textContent = this.groupName;
+            document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
+
+            if (response.lobbyStatus === 'active' && response.content) {
+                this.loadContent(response.content);
+            } else {
+                this.switchScreen('waiting');
+            }
+        });
+    }
+
+    clearSession() {
+        sessionStorage.removeItem('roomCode');
+        sessionStorage.removeItem('groupName');
+        this.roomCode = '';
+        this.groupName = '';
     }
 }
 
