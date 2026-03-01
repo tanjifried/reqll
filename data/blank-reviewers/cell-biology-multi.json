@@ -1,0 +1,41 @@
+{
+  "title": "Cell Biology Full Review",
+  "topics": [
+    {
+      "id": "cell-structure",
+      "title": "Cell Structure",
+      "text": "The {{blank-1}} is composed of a {{blank-2}} that regulates what enters and exits the cell. Within the cell, the {{blank-3}} contains the genetic material. The {{blank-4}} are responsible for producing ATP through cellular respiration. {{blank-5}} synthesize proteins by translating mRNA.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "cell membrane" },
+        { "id": "blank-2", "term": "phospholipid bilayer" },
+        { "id": "blank-3", "term": "nucleus" },
+        { "id": "blank-4", "term": "mitochondria" },
+        { "id": "blank-5", "term": "Ribosomes" }
+      ]
+    },
+    {
+      "id": "cell-division",
+      "title": "Cell Division",
+      "text": "During {{blank-1}}, the cell replicates its DNA. The {{blank-2}} holds the sister chromatids together. {{blank-3}} is the stage where the cell actually divides. In {{blank-4}}, cells divide to produce gametes for sexual reproduction. The result of meiosis is {{blank-5}} daughter cells.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "interphase" },
+        { "id": "blank-2", "term": "centromere" },
+        { "id": "blank-3", "term": "cytokinesis" },
+        { "id": "blank-4", "term": "meiosis" },
+        { "id": "blank-5", "term": "four" }
+      ]
+    },
+    {
+      "id": "energy-processes",
+      "title": "Energy Processes",
+      "text": "{{blank-1}} occurs in the chloroplasts and converts sunlight into chemical energy. The light-dependent reactions take place in the {{blank-2}}. {{blank-3}} is the process that converts glucose into ATP. During {{blank-4}}, oxygen is produced as a byproduct. The Krebs cycle occurs in the {{blank-5}} of the mitochondria.",
+      "keyTerms": [
+        { "id": "blank-1", "term": "Photosynthesis" },
+        { "id": "blank-2", "term": "thylakoid membrane" },
+        { "id": "blank-3", "term": "Cellular respiration" },
+        { "id": "blank-4", "term": "photosynthesis" },
+        { "id": "blank-5", "term": "matrix" }
+      ]
+    }
+  ]
+}

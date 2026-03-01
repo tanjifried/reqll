@@ -48,18 +48,29 @@
                     <div class="connection-status connected">● Connected</div>
                 </header>
 
-                <div id="content-area" class="content-area">
-                    <!-- Content loaded by host -->
+                <!-- Topic Tabs -->
+                <div id="topic-tabs" class="topic-tabs hidden">
+                    <!-- Tabs loaded dynamically -->
+                </div>
+
+                <!-- Document Container -->
+                <div class="document-container">
+                    <div class="document-page">
+                        <div id="content-area" class="doc-content">
+                            <!-- Content loaded by host -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Answers Section (per topic) -->
+                <div id="answers-section" class="answers-section hidden">
+                    <h3>✅ Correct Answers</h3>
+                    <div id="revealed-content"></div>
                 </div>
 
                 <div id="wheel-result" class="wheel-result hidden">
                     <h3>🎡 Wheel Result</h3>
                     <div class="result-value">-</div>
-                </div>
-
-                <div id="answers-revealed" class="answers-revealed hidden">
-                    <h3>✅ Correct Answers</h3>
-                    <div id="revealed-content"></div>
                 </div>
             </div>
         </div>

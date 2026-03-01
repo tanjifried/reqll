@@ -22,6 +22,12 @@ class Player {
         this.keyTerms = [];
         this.userAnswers = new Map();
         
+        // Multi-topic support
+        this.topics = []; // Array of topic objects
+        this.currentTopicIndex = 0;
+        this.topicAnswers = {}; // { topicId: { blankId: answer } }
+        this.revealedTopics = new Set(); // Track which topics have revealed answers
+        
         this.init();
     }
 
@@ -206,47 +212,30 @@ class Player {
             this.content = content;
             this.switchScreen('game');
 
-            const contentArea = document.getElementById('content-area');
-            
-            if (content.title) {
-                contentArea.innerHTML = `<h2 class="content-title">${content.title}</h2>`;
+            // Reset topic state
+            this.topics = [];
+            this.currentTopicIndex = 0;
+            this.topicAnswers = {};
+            this.revealedTopics = new Set();
+
+            // Check if multi-topic content
+            if (content.topics && Array.isArray(content.topics) && content.topics.length > 0) {
+                this.topics = content.topics;
+                this.renderTabs();
+                this.loadTopic(0);
+            } else {
+                // Single topic - backward compatible
+                this.topics = [{
+                    id: 'main',
+                    title: content.title || 'Content',
+                    text: content.text || '',
+                    keyTerms: content.keyTerms || []
+                }];
+                document.getElementById('topic-tabs').classList.add('hidden');
+                this.loadTopic(0);
             }
 
-            this.keyTerms = content.keyTerms || [];
-            let html = content.text || '';
-
-            this.keyTerms.forEach(term => {
-                const input = `<input type="text" class="blank-input" data-term-id="${term.id}" placeholder="?" autocomplete="off">`;
-                html = html.replace(`{{${term.id}}}`, input);
-            });
-
-            const textEl = document.createElement('div');
-            textEl.className = 'content-text';
-            textEl.innerHTML = html;
-            contentArea.appendChild(textEl);
-
-            contentArea.querySelectorAll('.blank-input').forEach(input => {
-                input.addEventListener('blur', () => {
-                    try {
-                        this.submitAnswer(input.dataset.termId, input.value);
-                    } catch (err) {
-                        console.error('Error in submitAnswer:', err);
-                    }
-                });
-
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') {
-                        try {
-                            this.submitAnswer(input.dataset.termId, input.value);
-                            input.blur();
-                        } catch (err) {
-                            console.error('Error in submitAnswer:', err);
-                        }
-                    }
-                });
-            });
-
-            document.getElementById('answers-revealed').classList.add('hidden');
+            document.getElementById('answers-section').classList.add('hidden');
             document.getElementById('wheel-result').classList.add('hidden');
         } catch (error) {
             console.error('Error loading content:', error);
@@ -254,9 +243,137 @@ class Player {
         }
     }
 
-    submitAnswer(blankId, answer) {
-        if (!answer.trim()) return;
+    renderTabs() {
+        const tabsContainer = document.getElementById('topic-tabs');
+        tabsContainer.classList.remove('hidden');
+        
+        tabsContainer.innerHTML = this.topics.map((topic, index) => `
+            <button class="tab ${index === this.currentTopicIndex ? 'active' : ''}" 
+                    data-topic-index="${index}">
+                ${topic.title}
+            </button>
+        `).join('');
 
+        // Add click handlers
+        tabsContainer.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const topicIndex = parseInt(tab.dataset.topicIndex);
+                this.switchTopic(topicIndex);
+            });
+        });
+    }
+
+    switchTopic(topicIndex) {
+        // Save current topic state before switching
+        this.saveCurrentTopicAnswers();
+
+        this.currentTopicIndex = topicIndex;
+        
+        // Update tab UI
+        document.querySelectorAll('.topic-tabs .tab').forEach((tab, index) => {
+            tab.classList.toggle('active', index === topicIndex);
+        });
+
+        this.loadTopic(topicIndex);
+    }
+
+    saveCurrentTopicAnswers() {
+        const currentTopic = this.topics[this.currentTopicIndex];
+        if (!currentTopic) return;
+
+        // Save all current input values
+        const inputs = document.querySelectorAll('.doc-content .blank-input');
+        inputs.forEach(input => {
+            const blankId = input.dataset.blankId;
+            if (blankId && input.value) {
+                if (!this.topicAnswers[currentTopic.id]) {
+                    this.topicAnswers[currentTopic.id] = {};
+                }
+                this.topicAnswers[currentTopic.id][blankId] = input.value;
+            }
+        });
+    }
+
+    loadTopic(topicIndex) {
+        const topic = this.topics[topicIndex];
+        if (!topic) return;
+
+        const contentArea = document.getElementById('content-area');
+        
+        // Set title
+        contentArea.innerHTML = `<h2 class="doc-title">${topic.title}</h2>`;
+
+        const keyTerms = topic.keyTerms || [];
+        let html = topic.text || '';
+
+        // Replace blanks with inputs
+        keyTerms.forEach(term => {
+            const input = `<input type="text" 
+                class="blank-input" 
+                data-blank-id="${term.id}" 
+                data-topic-id="${topic.id}"
+                placeholder="?" 
+                autocomplete="off">`;
+            html = html.replace(`{{${term.id}}}`, input);
+        });
+
+        const textEl = document.createElement('div');
+        textEl.className = 'doc-content';
+        textEl.innerHTML = html;
+        contentArea.appendChild(textEl);
+
+        // Restore saved answers for this topic
+        const savedAnswers = this.topicAnswers[topic.id] || {};
+        Object.keys(savedAnswers).forEach(blankId => {
+            const input = contentArea.querySelector(`[data-blank-id="${blankId}"]`);
+            if (input) {
+                input.value = savedAnswers[blankId];
+                input.classList.add('filled');
+            }
+        });
+
+        // Add event listeners
+        contentArea.querySelectorAll('.blank-input').forEach(input => {
+            input.addEventListener('blur', () => {
+                try {
+                    input.classList.add('filled');
+                    this.submitAnswer(input.dataset.topicId, input.dataset.blankId, input.value);
+                } catch (err) {
+                    console.error('Error in submitAnswer:', err);
+                }
+            });
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    try {
+                        input.classList.add('filled');
+                        this.submitAnswer(input.dataset.topicId, input.dataset.blankId, input.value);
+                        input.blur();
+                    } catch (err) {
+                        console.error('Error in submitAnswer:', err);
+                    }
+                }
+            });
+        });
+
+        // Show revealed answers if this topic was revealed
+        if (this.revealedTopics.has(topic.id)) {
+            this.showRevealedForTopic(topic.id);
+        } else {
+            document.getElementById('answers-section').classList.add('hidden');
+        }
+    }
+
+    submitAnswer(topicId, blankId, answer) {
+        if (!answer || !answer.trim()) return;
+
+        // Store answer per topic
+        if (!this.topicAnswers[topicId]) {
+            this.topicAnswers[topicId] = {};
+        }
+        this.topicAnswers[topicId][blankId] = answer;
+
+        // Also maintain backward compatibility
         this.userAnswers.set(blankId, answer);
 
         // Only submit if socket is connected
@@ -268,32 +385,73 @@ class Player {
         this.socket.emit('submit-answer', {
             roomCode: this.roomCode,
             groupName: this.groupName,
-            blankId,
-            answer
+            topicId: topicId,
+            blankId: blankId,
+            answer: answer
         });
     }
 
-    showRevealedAnswers(answers) {
-        const revealedArea = document.getElementById('answers-revealed');
+    showRevealedAnswers(data) {
+        // Handle both single-topic (array) and multi-topic (object) formats
+        const answers = data.answers || data;
+        const topicId = data.topicId;
+        
+        // If topicId provided, only reveal for that topic
+        if (topicId) {
+            this.revealedTopics.add(topicId);
+            this.showRevealedForTopic(topicId, answers);
+            return;
+        }
+
+        // Backward compatibility - reveal all
+        const currentTopic = this.topics[this.currentTopicIndex];
+        if (currentTopic) {
+            this.revealedTopics.add(currentTopic.id);
+        }
+        
+        this.showRevealedForTopic(topicId, answers);
+    }
+
+    showRevealedForTopic(topicId, answers) {
+        const answersSection = document.getElementById('answers-section');
         const revealedContent = document.getElementById('revealed-content');
         
+        if (!answers || answers.length === 0) {
+            answersSection.classList.add('hidden');
+            return;
+        }
+
         revealedContent.innerHTML = answers.map(ans => `
             <div class="revealed-item">
-                <span class="blank-label">Blank ${ans.blankId}:</span>
+                <span class="blank-label">${ans.blankId}:</span>
                 <span class="correct-answer">${ans.answer}</span>
             </div>
         `).join('');
 
-        revealedArea.classList.remove('hidden');
+        answersSection.classList.remove('hidden');
         
-        answers.forEach(ans => {
-            const input = document.querySelector(`[data-term-id="${ans.blankId}"]`);
-            if (input) {
-                input.value = ans.answer;
-                input.classList.add('revealed');
-                input.readOnly = true;
+        // Update the inputs in the current topic
+        const currentTopic = this.topics[this.currentTopicIndex];
+        if (currentTopic && currentTopic.id === topicId) {
+            answers.forEach(ans => {
+                const input = document.querySelector(`[data-blank-id="${ans.blankId}"]`);
+                if (input) {
+                    input.value = ans.answer;
+                    input.classList.add('revealed');
+                    input.classList.add('filled');
+                    input.readOnly = true;
+                }
+            });
+        }
+
+        // Update tab to show completed
+        const tabIndex = this.topics.findIndex(t => t.id === topicId);
+        if (tabIndex >= 0) {
+            const tab = document.querySelector(`.topic-tabs .tab[data-topic-index="${tabIndex}"]`);
+            if (tab) {
+                tab.classList.add('completed');
             }
-        });
+        }
     }
 
     showWheelResult(result) {
