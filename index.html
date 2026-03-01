@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reqll - Classroom Engagement Tool</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <span class="logo">🎯</span>
+                <h1>reqll</h1>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-view="reviewer">Reviewer</button>
+                <button class="nav-tab" data-view="wheels">Wheels</button>
+                <button class="nav-tab" data-view="settings">Settings</button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Fill-in-the-Blank Reviewer View -->
+            <section id="reviewer-view" class="view active">
+                <div class="view-header">
+                    <h2>Smart Fill-in-the-Blanks</h2>
+                    <div class="controls">
+                        <input type="file" id="reviewer-file" accept=".json,.md" hidden>
+                        <button class="btn btn-secondary" onclick="document.getElementById('reviewer-file').click()">
+                            📁 Load Content
+                        </button>
+                        <button class="btn btn-primary" id="reveal-all-btn" disabled>👁️ Reveal All</button>
+                    </div>
+                </div>
+                
+                <div class="reviewer-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                        <span class="progress-text" id="progress-text">0/0 Correct</span>
+                    </div>
+                    
+                    <div class="content-area" id="content-area">
+                        <div class="placeholder">
+                            <span class="placeholder-icon">📝</span>
+                            <p>Load a JSON or Markdown file to start</p>
+                            <p class="placeholder-hint">Use the "Load Content" button above</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feedback-panel" id="feedback-panel">
+                        <div class="feedback-header">
+                            <h3>Progress</h3>
+                            <span class="accuracy" id="accuracy">0%</span>
+                        </div>
+                        <div class="feedback-list" id="feedback-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Wheels View -->
+            <section id="wheels-view" class="view">
+                <div class="view-header">
+                    <h2>Multi-Dimensional Wheels</h2>
+                    <div class="controls">
+                        <button class="btn btn-secondary" id="load-wheels-btn">📁 Load Wheels</button>
+                        <button class="btn btn-accent" id="spin-all-btn">🎲 Spin All</button>
+                        <label class="toggle-label">
+                            <input type="checkbox" id="dependent-mode" checked>
+                            <span class="toggle-text">Dependent Mode</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="wheels-container" id="wheels-container">
+                    <div class="placeholder">
+                        <span class="placeholder-icon">🎡</span>
+                        <p>Load wheel data to get started</p>
+                        <p class="placeholder-hint">Configure wheels in the settings or load a JSON file</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="settings-view" class="view">
+                <div class="settings-container">
+                    <h2>Settings</h2>
+                    
+                    <div class="setting-group">
+                        <h3>Reviewer Settings</h3>
+                        <div class="setting-item">
+                            <label>Similarity Threshold (%)</label>
+                            <input type="range" id="similarity-threshold" min="50" max="100" value="80">
+                            <span class="setting-value">80%</span>
+                        </div>
+                        <div class="setting-item">
+                            <label>Case Sensitive Matching</label>
+                            <input type="checkbox" id="case-sensitive">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Wheel Settings</h3>
+                        <div class="setting-item">
+                            <label>Default Spin Duration (ms)</label>
+                            <input type="number" id="spin-duration" value="3000" min="500" max="10000" step="100">
+                        </div>
+                        <div class="setting-item">
+                            <label>Animation Speed</label>
+                            <input type="range" id="animation-speed" min="0.5" max="2" step="0.1" value="1">
+                            <span class="setting-value">1.0x</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Results Modal -->
+        <div class="modal" id="result-modal">
+            <div class="modal-content">
+                <span class="modal-close">&times;</span>
+                <div class="modal-body">
+                    <div class="result-icon" id="result-icon">🎉</div>
+                    <h2 id="result-title">Result</h2>
+                    <p id="result-message">Message</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Input (hidden) -->
+        <input type="file" id="wheels-file-input" accept=".json" hidden>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+    <script src="js/fuzzyMatcher.js"></script>
+    <script src="js/wheel.js"></script>
+    <script src="js/reviewer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

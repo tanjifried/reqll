@@ -1,0 +1,38 @@
+{
+  "fillInTheBlank": {
+    "title": "Cell Biology Review",
+    "text": "The {{cell membrane}} is composed of a {{phospholipid bilayer}} that regulates what enters and exits the cell. Within the cell, the {{nucleus}} contains the genetic material. The {{mitochondria}} are responsible for producing ATP through cellular respiration. {{Ribosomes}} synthesize proteins by translating mRNA.",
+    "keyTerms": [
+      {
+        "id": "blank-1",
+        "term": "cell membrane",
+        "alternatives": ["plasma membrane", "cell wall"]
+      },
+      {
+        "id": "blank-2",
+        "term": "phospholipid bilayer",
+        "alternatives": ["lipid bilayer", "phospholipid layer"]
+      },
+      {
+        "id": "blank-3",
+        "term": "nucleus",
+        "alternatives": ["nuclear envelope", "nucleolus"]
+      },
+      {
+        "id": "blank-4",
+        "term": "mitochondria",
+        "alternatives": ["mitochondrion", "powerhouse"]
+      },
+      {
+        "id": "blank-5",
+        "term": "Ribosomes",
+        "alternatives": ["ribosome", "protein factories"]
+      }
+    ],
+    "settings": {
+      "similarityThreshold": 0.8,
+      "caseSensitive": false,
+      "allowPartialMatches": true
+    }
+  }
+}
