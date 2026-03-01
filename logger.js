@@ -32,7 +32,7 @@ class Logger {
      */
     writeToFile(logEntry) {
         try {
-            const logLine = `[${logEntry.timestamp}] [${logEntry.level.toUpperCase()}] ${logEntry.message}`;
+            let logLine = `[${logEntry.timestamp}] [${logEntry.level.toUpperCase()}] ${logEntry.message}`;
             if (Object.keys(logEntry).length > 3) {
                 logLine += ` ${JSON.stringify(logEntry)}`;
             }
