@@ -20,6 +20,16 @@ class Player {
         this.parseUrlParams();
         this.bindEvents();
         this.connectSocket();
+        
+        // Check for existing session and auto-reconnect
+        const savedRoomCode = sessionStorage.getItem('roomCode');
+        const savedGroupName = sessionStorage.getItem('groupName');
+        
+        if (savedRoomCode && savedGroupName) {
+            this.roomCode = savedRoomCode;
+            this.groupName = savedGroupName;
+            // Auto-reconnect after socket connects
+        }
     }
 
     parseUrlParams() {
@@ -52,6 +62,11 @@ class Player {
         this.socket.on('connect', () => {
             console.log('Connected to server');
             this.showConnectionStatus(true);
+            
+            // Auto-reconnect if we have session data
+            if (this.roomCode && this.groupName) {
+                this.reconnect();
+            }
         });
 
         this.socket.on('disconnect', () => {
@@ -70,6 +85,10 @@ class Player {
 
         this.socket.on('wheel-spun', (data) => {
             this.showWheelResult(data.result);
+        });
+
+        this.socket.on('wheels-updated', (data) => {
+            console.log('Wheels updated:', data.wheels);
         });
 
         this.socket.on('lobby-closed', () => {
@@ -94,6 +113,10 @@ class Player {
 
         this.roomCode = roomCode;
         this.groupName = groupName;
+
+        // Save to session for reconnection
+        sessionStorage.setItem('roomCode', this.roomCode);
+        sessionStorage.setItem('groupName', this.groupName);
 
         this.socket.emit('join-lobby', { roomCode, groupName }, (response) => {
             if (response.error) {
@@ -197,10 +220,25 @@ class Player {
     }
 
     switchScreen(screenName) {
+        const screenMap = {
+            'join': 'join-screen',
+            'waiting': 'waiting-screen',
+            'game': 'game-screen',
+            'disconnected': 'disconnected-screen'
+        };
+        
+        const targetScreen = screenMap[screenName] || screenName;
+        
         document.querySelectorAll('.screen').forEach(screen => {
             screen.classList.remove('active');
         });
-        document.getElementById(`${screenName}-screen`).classList.add('active');
+        
+        const screenEl = document.getElementById(targetScreen);
+        if (screenEl) {
+            screenEl.classList.add('active');
+        } else {
+            console.error('Screen not found:', targetScreen);
+        }
     }
 
     showError(message) {
@@ -219,8 +257,38 @@ class Player {
     }
 
     reconnect() {
-        if (this.socket) this.socket.connect();
-        this.switchScreen('join');
+        // Try session storage first
+        if (!this.roomCode) {
+            this.roomCode = sessionStorage.getItem('roomCode');
+            this.groupName = sessionStorage.getItem('groupName');
+        }
+        
+        if (this.socket && !this.socket.connected) {
+            this.socket.connect();
+        }
+        
+        setTimeout(() => {
+            if (this.roomCode && this.groupName) {
+                this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
+                    if (response.error) {
+                        this.showError(response.error);
+                        this.switchScreen('join');
+                        return;
+                    }
+
+                    document.getElementById('player-group-name').textContent = this.groupName;
+                    document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
+
+                    if (response.lobbyStatus === 'active' && response.content) {
+                        this.loadContent(response.content);
+                    } else {
+                        this.switchScreen('waiting');
+                    }
+                });
+            } else {
+                this.switchScreen('join');
+            }
+        }, 500);
     }
 }
 

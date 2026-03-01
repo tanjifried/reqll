@@ -26,6 +26,39 @@ class Host {
         this.connectSocket();
         this.loadWheelPresets();
         this.loadContentFiles();
+        
+        // Check for existing lobby in session
+        const savedRoomCode = sessionStorage.getItem('roomCode');
+        const savedHostToken = sessionStorage.getItem('hostToken');
+        
+        if (savedRoomCode && savedHostToken) {
+            this.tryReconnectHost(savedRoomCode, savedHostToken);
+        }
+    }
+
+    tryReconnectHost(roomCode, hostToken) {
+        this.socket.emit('host-reconnect', { roomCode, hostToken }, (response) => {
+            if (response.success) {
+                this.roomCode = roomCode;
+                this.hostToken = hostToken;
+                
+                // Update UI
+                document.getElementById('room-code-display').textContent = this.roomCode;
+                
+                // Restore groups
+                response.groups.forEach(group => {
+                    this.groups.set(group.name, group);
+                });
+                this.updateGroupsList();
+                document.getElementById('group-count').textContent = response.groups.length;
+                
+                console.log('Host reconnected to lobby:', roomCode);
+            } else {
+                // Clear invalid session data
+                sessionStorage.removeItem('roomCode');
+                sessionStorage.removeItem('hostToken');
+            }
+        });
     }
 
     connectSocket() {
@@ -172,6 +205,10 @@ class Host {
 
             this.roomCode = response.roomCode;
             this.hostToken = response.hostToken;
+            
+            // Save to session for reconnection
+            sessionStorage.setItem('roomCode', this.roomCode);
+            sessionStorage.setItem('hostToken', this.hostToken);
 
             // Update UI
             document.getElementById('room-code-display').textContent = this.roomCode;
@@ -195,7 +232,6 @@ class Host {
     }
 
     handleGroupJoined(data) {
-        this.groups.clear();
         data.groups.forEach(group => {
             this.groups.set(group.name, group);
         });
@@ -205,7 +241,6 @@ class Host {
     }
 
     handleGroupLeft(data) {
-        this.groups.clear();
         data.groups.forEach(group => {
             this.groups.set(group.name, group);
         });

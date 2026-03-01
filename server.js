@@ -418,33 +418,44 @@ io.on('connection', (socket) => {
         return callback({ error: 'Lobby not found' });
       }
 
+      if (!groupName || groupName.trim().length === 0) {
+        return callback({ error: 'Group name is required' });
+      }
+
+      if (groupName.length > 20) {
+        return callback({ error: 'Group name must be 20 characters or less' });
+      }
+
+      // Sanitize group name
+      const sanitizedGroupName = groupName.trim().replace(/[<>\"'&]/g, '');
+
       if (lobby.groups.size >= MAX_GROUPS_PER_LOBBY) {
         return callback({ error: 'Lobby is full' });
       }
 
-      if (lobby.groups.has(groupName)) {
+      if (lobby.groups.has(sanitizedGroupName)) {
         return callback({ error: 'Group name already taken' });
       }
 
       // Add group to lobby
       const group = {
         id: uuidv4(),
-        name: groupName,
+        name: sanitizedGroupName,
         socketId: socket.id,
         answers: new Map(),
         score: 0,
         joinedAt: Date.now()
       };
 
-      lobby.groups.set(groupName, group);
+      lobby.groups.set(sanitizedGroupName, group);
       lobby.lastActivity = Date.now();
       socket.join(roomCode);
-      socket.groupName = groupName;
+      socket.groupName = sanitizedGroupName;
       socket.roomCode = roomCode;
 
       // Notify host
       io.to(`host-${roomCode}`).emit('group-joined', {
-        groupName,
+        groupName: sanitizedGroupName,
         groupCount: lobby.groups.size,
         groups: Array.from(lobby.groups.values()).map(g => ({
           name: g.name,
@@ -455,12 +466,12 @@ io.on('connection', (socket) => {
 
       callback({
         success: true,
-        groupName,
+        groupName: sanitizedGroupName,
         lobbyStatus: lobby.status,
         content: lobby.status === 'active' ? lobby.content : null
       });
 
-      logger.info('Group joined lobby', { groupName, roomCode });
+      logger.info('Group joined lobby', { groupName: sanitizedGroupName, roomCode });
     } catch (error) {
       callback({ error: error.message });
     }
@@ -619,6 +630,40 @@ io.on('connection', (socket) => {
         })),
         wheelResults: lobby.wheelResults
       });
+    } catch (error) {
+      callback({ error: error.message });
+    }
+  });
+
+  // Host reconnects with token
+  socket.on('host-reconnect', (data, callback) => {
+    try {
+      const { roomCode, hostToken } = data;
+      const lobby = activeLobbies.get(roomCode);
+
+      if (!lobby) {
+        return callback({ error: 'Lobby not found' });
+      }
+
+      if (lobby.hostToken !== hostToken) {
+        return callback({ error: 'Invalid host token' });
+      }
+
+      // Update host socket
+      lobby.hostSocketId = socket.id;
+      socket.join(`host-${roomCode}`);
+
+      callback({
+        success: true,
+        roomCode,
+        groups: Array.from(lobby.groups.values()).map(g => ({
+          name: g.name,
+          score: g.score,
+          joinedAt: g.joinedAt
+        }))
+      });
+
+      logger.info('Host reconnected', { roomCode });
     } catch (error) {
       callback({ error: error.message });
     }
