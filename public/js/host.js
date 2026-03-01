@@ -12,6 +12,7 @@ class Host {
         this.currentContent = null;
         this.topics = []; // Array of topics for multi-topic content
         this.currentTopicIndex = 0; // Current active topic
+        this.selectedGroupName = null; // Selected group to view inputs
         this.wheels = new Map();
         this.wheelData = null;
         this.dependentMode = true;
@@ -147,6 +148,15 @@ class Host {
             this.revealAnswers();
         });
 
+        // Topic navigation
+        document.getElementById('prev-topic-btn').addEventListener('click', () => {
+            this.switchTopic(this.currentTopicIndex - 1);
+        });
+
+        document.getElementById('next-topic-btn').addEventListener('click', () => {
+            this.switchTopic(this.currentTopicIndex + 1);
+        });
+
         // Wheels tab
         document.getElementById('new-wheel-btn').addEventListener('click', () => {
             this.openWheelModal();
@@ -241,6 +251,9 @@ class Host {
 
         this.updateGroupsList();
         document.getElementById('group-count').textContent = data.groupCount;
+        
+        // Update group tabs and inputs
+        this.updateGroupTabs();
     }
 
     handleGroupLeft(data) {
@@ -251,6 +264,12 @@ class Host {
 
         this.updateGroupsList();
         document.getElementById('group-count').textContent = data.groupCount;
+        
+        // Update group tabs and inputs
+        if (this.selectedGroupName && !this.groups.has(this.selectedGroupName)) {
+            this.selectedGroupName = null;
+        }
+        this.updateGroupTabs();
     }
 
     updateGroupsList() {
@@ -280,7 +299,7 @@ class Host {
     }
 
     handleAnswerSubmitted(data) {
-        const { groupName, blankId, answer, totalAnswers } = data;
+        const { groupName, blankId, answer, totalAnswers, topicId } = data;
         
         // Store answer
         if (!this.groupAnswers.has(groupName)) {
@@ -296,6 +315,11 @@ class Host {
             const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
             const totalBlanks = currentTopic?.keyTerms?.length || 0;
             stats.textContent = `${totalAnswers}/${totalBlanks} answered`;
+        }
+
+        // Update group inputs if visible
+        if (this.selectedGroupName === groupName) {
+            this.updateGroupInputs();
         }
     }
 
@@ -424,7 +448,7 @@ class Host {
         
         let html = currentTopic.text || '';
         currentTopic.keyTerms?.forEach(term => {
-            html = html.replace(`{{${term.id}}}`, `<span class="blank">[${term.term}]</span>`);
+            html = html.replace(`{{${term.id}}}`, `<span class="blank">[answer]</span>`);
         });
 
         const totalTopics = this.topics?.length || 1;
@@ -437,6 +461,138 @@ class Host {
             </div>
             <div class="content-body">${html}</div>
         `;
+
+        // Show/hide topic tabs based on content type
+        this.updateTopicTabs();
+
+        // Show/hide group tabs and inputs
+        this.updateGroupTabs();
+
+        // Update navigation buttons
+        this.updateTopicNavButtons();
+    }
+
+    updateTopicTabs() {
+        const tabsContainer = document.getElementById('admin-topic-tabs');
+        if (!tabsContainer) return;
+
+        if (this.topics && this.topics.length > 1) {
+            tabsContainer.classList.remove('hidden');
+            tabsContainer.innerHTML = this.topics.map((topic, index) => `
+                <button class="tab ${index === this.currentTopicIndex ? 'active' : ''}" 
+                        data-topic-index="${index}">
+                    ${topic.title || `Topic ${index + 1}`}
+                </button>
+            `).join('');
+
+            // Add click handlers
+            tabsContainer.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    this.switchTopic(parseInt(tab.dataset.topicIndex));
+                });
+            });
+        } else {
+            tabsContainer.classList.add('hidden');
+        }
+    }
+
+    switchTopic(index) {
+        if (index < 0 || index >= this.topics.length) return;
+        
+        this.currentTopicIndex = index;
+        this.showContentPreview(this.currentContent);
+        this.updateGroupInputs();
+    }
+
+    updateTopicNavButtons() {
+        const prevBtn = document.getElementById('prev-topic-btn');
+        const nextBtn = document.getElementById('next-topic-btn');
+        
+        if (prevBtn && nextBtn) {
+            prevBtn.disabled = this.currentTopicIndex <= 0;
+            nextBtn.disabled = this.currentTopicIndex >= this.topics.length - 1;
+        }
+    }
+
+    updateGroupTabs() {
+        const groupTabsContainer = document.getElementById('group-tabs');
+        const groupInputsContainer = document.getElementById('group-inputs');
+        
+        if (!groupTabsContainer || !groupInputsContainer) return;
+
+        const groups = Array.from(this.groups.values());
+        
+        if (groups.length > 0 && this.currentContent) {
+            groupTabsContainer.classList.remove('hidden');
+            groupInputsContainer.classList.remove('hidden');
+            
+            // Auto-select first group if none selected
+            if (!this.selectedGroupName) {
+                this.selectedGroupName = groups[0].name;
+            }
+
+            const tabsList = document.getElementById('group-tabs-list');
+            tabsList.innerHTML = groups.map(group => `
+                <button class="tab ${group.name === this.selectedGroupName ? 'active' : ''}" 
+                        data-group-name="${group.name}">
+                    ${group.name}
+                </button>
+            `).join('');
+
+            // Add click handlers
+            tabsList.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    this.selectedGroupName = tab.dataset.groupName;
+                    this.updateGroupTabs();
+                    this.updateGroupInputs();
+                });
+            });
+
+            this.updateGroupInputs();
+        } else {
+            groupTabsContainer.classList.add('hidden');
+            groupInputsContainer.classList.add('hidden');
+        }
+    }
+
+    updateGroupInputs() {
+        const inputsList = document.getElementById('group-inputs-list');
+        if (!inputsList) return;
+
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        if (!currentTopic || !this.selectedGroupName) {
+            inputsList.innerHTML = '<p class="empty-state">Select a group to view inputs</p>';
+            return;
+        }
+
+        const group = this.groups.get(this.selectedGroupName);
+        const groupAnswersMap = this.groupAnswers.get(this.selectedGroupName);
+        
+        if (!group) {
+            inputsList.innerHTML = '<p class="empty-state">Group not found</p>';
+            return;
+        }
+
+        const keyTerms = currentTopic.keyTerms || [];
+        
+        let html = `<div class="input-card">
+            <div class="group-name">${group.name}</div>`;
+        
+        keyTerms.forEach(term => {
+            const answer = groupAnswersMap?.get(term.id);
+            const isCorrect = answer && (answer.toLowerCase() === term.term.toLowerCase() || 
+                (term.alternatives && term.alternatives.some(a => a.toLowerCase() === answer.toLowerCase())));
+            
+            html += `
+                <div class="input-item">
+                    <span class="blank-label">${term.id}:</span>
+                    <span class="user-input ${answer ? (isCorrect ? 'correct' : 'incorrect') : ''}">${answer || '—'}</span>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        inputsList.innerHTML = html;
     }
 
     broadcastContent() {

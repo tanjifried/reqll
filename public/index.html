@@ -116,14 +116,30 @@
                             </div>
                         </div>
 
-                        <div id="group-progress" class="group-progress hidden">
-                            <h3>Group Progress</h3>
-                            <div id="progress-list" class="progress-list"></div>
+                        <!-- Topic Tabs for Admin -->
+                        <div id="admin-topic-tabs" class="topic-tabs hidden">
+                            <button class="tab active" data-topic-index="0">Topic 1</button>
+                        </div>
+
+                        <!-- Group/Player Tabs -->
+                        <div id="group-tabs" class="group-tabs hidden">
+                            <div id="group-tabs-list" class="tabs-list"></div>
+                        </div>
+
+                        <!-- Group Inputs View -->
+                        <div id="group-inputs" class="group-inputs hidden">
+                            <div id="group-inputs-list" class="inputs-list"></div>
                         </div>
 
                         <div class="host-controls">
+                            <button id="prev-topic-btn" class="btn btn-secondary" disabled>
+                                ← Previous
+                            </button>
                             <button id="reveal-answers-btn" class="btn btn-accent" disabled>
                                 👁️ Reveal Answers
+                            </button>
+                            <button id="next-topic-btn" class="btn btn-secondary" disabled>
+                                Next →
                             </button>
                         </div>
                     </div>
