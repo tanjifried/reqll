@@ -5,6 +5,7 @@ A multi-device classroom engagement tool featuring:
 - 🎡 **Multi-dimensional spinning wheels** with dependent logic (Group → Member)
 - 👥 **Lobby system** with QR code joining over hotspot
 - 💾 **Wheel configuration saving** - create, edit, and save wheel presets
+- 🔁 **Reconnect support** for disconnected groups via reconnect links/codes
 
 ## Features
 
@@ -17,12 +18,15 @@ A multi-device classroom engagement tool featuring:
 - QR code generation for easy joining
 - Spin wheels individually or all at once
 - Dependent wheel mode (Group → Member)
+- Input activity log with timestamps per group/topic/blank
+- Reconnect helper panel for disconnected groups (copy link or reconnect code)
 
 ### Players (Groups)
 - Join via room code or QR scan
 - Fill-in-the-blank answers from their device
 - See wheel spin results in real-time
 - View correct answers when revealed
+- Rejoin safely using reconnect link or reconnect code
 
 ## Installation
 
@@ -54,6 +58,7 @@ Server running on:
    - **Room Code** (6 characters)
    - **QR Code** (scan to join)
    - **Join URL** (send to groups)
+   - **Reconnect Link / Reconnect Code** for groups that disconnect
 
 4. In **Content** tab:
    - Load a JSON/Markdown file
@@ -74,6 +79,16 @@ Server running on:
 3. Enter group name
 4. Wait for host to load content
 5. Fill in the blanks
+6. If disconnected, use the reconnect code from host in the disconnected screen
+
+### Reconnect Workflow
+
+1. If a player disconnects, the host still sees that group in the lobby as disconnected.
+2. In the host lobby tab, open **Reconnect Help** and copy either:
+   - reconnect link, or
+   - reconnect code
+3. Player opens the link, or enters the reconnect code in `player.html` disconnected screen and taps **Use Reconnect Code**.
+4. Player rejoins the same group session and pending inputs continue syncing.
 
 ## Content Format
 

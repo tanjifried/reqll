@@ -103,7 +103,22 @@
                 <div class="disconnect-icon">📡</div>
                 <h2>Connection Lost</h2>
                 <p>Connection to the game was lost.<br>Please check your internet and try again.</p>
+                <div class="reconnect-code-box">
+                    <label for="reconnect-code-input">Reconnect Code (from host)</label>
+                    <input type="text" id="reconnect-code-input" placeholder="Enter reconnect code" maxlength="12" autocomplete="off">
+                    <button id="apply-reconnect-code-btn" class="btn btn-secondary">Use Reconnect Code</button>
+                </div>
                 <button id="reconnect-btn" class="btn btn-primary">🔄 Try Reconnect</button>
+            </div>
+        </div>
+
+        <div id="completion-modal" class="completion-modal hidden">
+            <div class="completion-card">
+                <h3>All Topics Completed</h3>
+                <p>Scan this QR code to open the final document.</p>
+                <img id="completion-qr" alt="Completion QR code">
+                <a id="completion-link" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Open Link</a>
+                <button id="close-completion-modal" class="btn btn-secondary">Close</button>
             </div>
         </div>
     </div>

@@ -21,23 +21,31 @@ class Host {
         this.currentWheelId = null;
         this.groupAnswers = new Map(); // Track answers per group
         this.spinResults = []; // Track all spin results
+        this.activeSpinBatch = null;
+        this.dependentSourceByWheel = new Map();
+        this.feedbackTimer = null;
+        this.pendingReconnect = null;
+        this.inputLogs = [];
+        this.maxInputLogs = 250;
+        this.joinUrl = '';
 
         this.init();
     }
 
     init() {
         this.bindEvents();
-        this.connectSocket();
-        this.loadWheelPresets();
-        this.loadContentFiles();
-        
+
         // Check for existing lobby in session
         const savedRoomCode = sessionStorage.getItem('roomCode');
         const savedHostToken = sessionStorage.getItem('hostToken');
-        
+
         if (savedRoomCode && savedHostToken) {
-            this.tryReconnectHost(savedRoomCode, savedHostToken);
+            this.pendingReconnect = { roomCode: savedRoomCode, hostToken: savedHostToken };
         }
+
+        this.connectSocket();
+        this.loadWheelPresets();
+        this.loadContentFiles();
     }
 
     tryReconnectHost(roomCode, hostToken) {
@@ -45,6 +53,7 @@ class Host {
             if (response.success) {
                 this.roomCode = roomCode;
                 this.hostToken = hostToken;
+                this.pendingReconnect = null;
                 
                 // Update UI
                 document.getElementById('room-code-display').textContent = this.roomCode;
@@ -54,13 +63,35 @@ class Host {
                     this.groups.set(group.name, group);
                 });
                 this.updateGroupsList();
-                document.getElementById('group-count').textContent = response.groups.length;
+                const connectedCount = response.groups.filter(group => group.connected !== false).length;
+                document.getElementById('group-count').textContent = connectedCount;
+
+                this.loadQRCode();
+
+                this.socket.emit('get-lobby-state', { roomCode: this.roomCode }, (state) => {
+                    if (!state?.success) return;
+
+                    if (state.content) {
+                        this.currentContent = state.content;
+                        if (state.content.topics && Array.isArray(state.content.topics)) {
+                            this.topics = this.normalizeTopics(state.content.topics);
+                        } else {
+                            this.topics = this.normalizeTopics([state.content]);
+                        }
+                        this.currentTopicIndex = 0;
+                        this.showContentPreview(this.currentContent);
+                        const revealBtn = document.getElementById('reveal-answers-btn');
+                        if (revealBtn) revealBtn.disabled = false;
+                    }
+                });
                 
                 console.log('Host reconnected to lobby:', roomCode);
             } else {
                 // Clear invalid session data
                 sessionStorage.removeItem('roomCode');
                 sessionStorage.removeItem('hostToken');
+                this.pendingReconnect = null;
+                this.createLobby();
             }
         });
     }
@@ -71,7 +102,17 @@ class Host {
         this.socket.on('connect', () => {
             console.log('Connected to server');
             this.showConnectionStatus(true);
-            // Auto-create lobby on connection
+
+            if (this.roomCode && this.hostToken) {
+                this.tryReconnectHost(this.roomCode, this.hostToken);
+                return;
+            }
+
+            if (this.pendingReconnect) {
+                this.tryReconnectHost(this.pendingReconnect.roomCode, this.pendingReconnect.hostToken);
+                return;
+            }
+
             this.createLobby();
         });
 
@@ -91,6 +132,10 @@ class Host {
         this.socket.on('answer-submitted', (data) => {
             this.handleAnswerSubmitted(data);
         });
+
+        this.socket.on('topic-completed', (data) => {
+            this.handleTopicCompleted(data);
+        });
     }
 
     bindEvents() {
@@ -109,6 +154,27 @@ class Host {
         document.getElementById('copy-url-btn').addEventListener('click', () => {
             const url = document.getElementById('join-url').value;
             this.copyToClipboard(url);
+        });
+
+        document.getElementById('reconnect-list')?.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+
+            const btn = target.closest('button[data-action]');
+            if (!btn) return;
+
+            const groupName = btn.dataset.groupName;
+            const reconnectCode = btn.dataset.reconnectCode;
+            if (!groupName || !reconnectCode) return;
+
+            const link = this.buildReconnectLink(groupName, reconnectCode);
+            if (btn.dataset.action === 'copy-link') {
+                this.copyToClipboard(link);
+            }
+
+            if (btn.dataset.action === 'copy-code') {
+                this.copyToClipboard(reconnectCode);
+            }
         });
 
         // Close lobby
@@ -188,12 +254,14 @@ class Host {
 
         // Results modal buttons
         document.getElementById('dismiss-results-btn')?.addEventListener('click', () => {
+            this.setSpinFeedback('');
             document.getElementById('result-modal').classList.remove('active');
         });
 
         document.getElementById('clear-results-btn')?.addEventListener('click', () => {
             this.spinResults = [];
             this.renderSpinResults();
+            this.setSpinFeedback('');
             document.getElementById('result-modal').classList.remove('active');
         });
 
@@ -237,6 +305,7 @@ class Host {
             // Update UI
             document.getElementById('room-code-display').textContent = this.roomCode;
             document.getElementById('join-url').value = response.joinUrl;
+            this.joinUrl = response.joinUrl;
 
             // Load QR code
             this.loadQRCode();
@@ -262,7 +331,7 @@ class Host {
         });
 
         this.updateGroupsList();
-        document.getElementById('group-count').textContent = data.groupCount;
+        document.getElementById('group-count').textContent = data.groupCount ?? Array.from(this.groups.values()).filter(group => group.connected !== false).length;
         
         // Update group tabs and inputs
         this.updateGroupTabs();
@@ -275,7 +344,7 @@ class Host {
         });
 
         this.updateGroupsList();
-        document.getElementById('group-count').textContent = data.groupCount;
+        document.getElementById('group-count').textContent = data.groupCount ?? Array.from(this.groups.values()).filter(group => group.connected !== false).length;
         
         // Update group tabs and inputs
         if (this.selectedGroupName && !this.groups.has(this.selectedGroupName)) {
@@ -294,6 +363,7 @@ class Host {
                     <p class="hint">Share the room code or QR code to let groups join</p>
                 </div>
             `;
+            this.renderReconnectList();
             return;
         }
 
@@ -301,23 +371,31 @@ class Host {
             <div class="group-card" data-group="${group.name}">
                 <div class="group-info">
                     <span class="group-name">${group.name}</span>
-                    <span class="group-status">Connected</span>
+                    <span class="group-status ${group.connected === false ? 'offline' : 'online'}">${group.connected === false ? 'Disconnected' : 'Connected'}</span>
                 </div>
                 <div class="group-stats">
                     <span class="group-answers">0/0 answered</span>
                 </div>
             </div>
         `).join('');
+
+        this.refreshGroupStatsForCurrentTopic();
+        this.renderReconnectList();
     }
 
     handleAnswerSubmitted(data) {
-        const { groupName, blankId, answer, totalAnswers, topicId } = data;
+        const { groupName, blankId, answer, totalAnswers, topicId, submittedAt } = data;
+        const normalizedTopicId = topicId || 'main';
         
-        // Store answer
+        // Store answer per group and topic
         if (!this.groupAnswers.has(groupName)) {
             this.groupAnswers.set(groupName, new Map());
         }
-        this.groupAnswers.get(groupName).set(blankId, answer);
+        const groupTopicAnswers = this.groupAnswers.get(groupName);
+        if (!groupTopicAnswers.has(normalizedTopicId)) {
+            groupTopicAnswers.set(normalizedTopicId, new Map());
+        }
+        groupTopicAnswers.get(normalizedTopicId).set(blankId, answer);
 
         // Update UI
         const groupCard = document.querySelector(`.group-card[data-group="${groupName}"]`);
@@ -326,13 +404,133 @@ class Host {
             // Get total blanks from current topic
             const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
             const totalBlanks = currentTopic?.keyTerms?.length || 0;
-            stats.textContent = `${totalAnswers}/${totalBlanks} answered`;
+            if ((currentTopic?.id || 'main') === normalizedTopicId) {
+                stats.textContent = `${totalAnswers}/${totalBlanks} answered`;
+            }
         }
 
         // Update group inputs if visible
         if (this.selectedGroupName === groupName) {
             this.updateGroupInputs();
         }
+
+        this.addInputLogEntry({
+            type: 'answer',
+            groupName,
+            topicId: normalizedTopicId,
+            blankId,
+            answer,
+            submittedAt: submittedAt || Date.now()
+        });
+    }
+
+    handleTopicCompleted(data) {
+        this.addInputLogEntry({
+            type: 'topic-complete',
+            groupName: data.groupName,
+            topicId: data.topicId,
+            submittedAt: data.completedAt || Date.now(),
+            submittedCount: data.submittedCount,
+            requiredCount: data.requiredCount
+        });
+    }
+
+    buildReconnectLink(groupName, reconnectCode) {
+        const origin = window.location.origin;
+        const params = new URLSearchParams({
+            room: this.roomCode,
+            group: groupName,
+            reconnect: reconnectCode
+        });
+        return `${origin}/player.html?${params.toString()}`;
+    }
+
+    renderReconnectList() {
+        const reconnectList = document.getElementById('reconnect-list');
+        if (!reconnectList) return;
+
+        const disconnectedGroups = Array.from(this.groups.values())
+            .filter(group => group.connected === false && group.reconnectCode)
+            .sort((a, b) => (b.disconnectedAt || 0) - (a.disconnectedAt || 0));
+
+        if (disconnectedGroups.length === 0) {
+            reconnectList.innerHTML = '<p class="empty-hint">No disconnected groups.</p>';
+            return;
+        }
+
+        reconnectList.innerHTML = disconnectedGroups.map(group => {
+            const timestamp = group.disconnectedAt ? this.formatTime(group.disconnectedAt) : 'Unknown time';
+            const safeGroupName = this.escapeHtml(group.name);
+            const safeCode = this.escapeHtml(group.reconnectCode);
+            return `
+                <div class="reconnect-row">
+                    <div class="reconnect-meta">
+                        <div class="group-name">${safeGroupName}</div>
+                        <div class="hint">Left at ${timestamp}</div>
+                    </div>
+                    <code class="reconnect-code">${safeCode}</code>
+                    <button class="btn btn-secondary" data-action="copy-link" data-group-name="${safeGroupName}" data-reconnect-code="${safeCode}">Copy Link</button>
+                    <button class="btn btn-secondary" data-action="copy-code" data-group-name="${safeGroupName}" data-reconnect-code="${safeCode}">Copy Code</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    addInputLogEntry(entry) {
+        this.inputLogs.unshift(entry);
+        if (this.inputLogs.length > this.maxInputLogs) {
+            this.inputLogs.length = this.maxInputLogs;
+        }
+
+        this.renderInputLog();
+    }
+
+    renderInputLog() {
+        const container = document.getElementById('input-log-list');
+        if (!container) return;
+
+        if (this.inputLogs.length === 0) {
+            container.innerHTML = '<p class="empty-hint">No input activity yet.</p>';
+            return;
+        }
+
+        container.innerHTML = this.inputLogs.map((entry) => {
+            const timestamp = this.formatTime(entry.submittedAt || Date.now());
+            const safeGroupName = this.escapeHtml(entry.groupName || 'Unknown Group');
+            const safeTopicId = this.escapeHtml(entry.topicId || 'main');
+            if (entry.type === 'topic-complete') {
+                return `
+                    <div class="log-row complete">
+                        <span class="log-time">${timestamp}</span>
+                        <span class="log-text"><strong>${safeGroupName}</strong> finished <strong>${safeTopicId}</strong> (${entry.submittedCount}/${entry.requiredCount}).</span>
+                    </div>
+                `;
+            }
+
+            const safeBlankId = this.escapeHtml(entry.blankId || 'blank');
+            const safeAnswer = this.escapeHtml(String(entry.answer || ''));
+
+            return `
+                <div class="log-row">
+                    <span class="log-time">${timestamp}</span>
+                    <span class="log-text"><strong>${safeGroupName}</strong> - ${safeTopicId}/${safeBlankId}: ${safeAnswer}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    formatTime(value) {
+        const time = value ? new Date(value) : new Date();
+        return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     handleContentFile(file) {
@@ -353,10 +551,10 @@ class Host {
                 
                 // Set up topics - support both multi-topic and single-topic formats
                 if (content.topics && Array.isArray(content.topics)) {
-                    this.topics = content.topics;
+                    this.topics = this.normalizeTopics(content.topics);
                 } else {
                     // Single topic - wrap in array for consistency
-                    this.topics = [content];
+                    this.topics = this.normalizeTopics([content]);
                 }
                 this.currentTopicIndex = 0;
                 
@@ -382,10 +580,10 @@ class Host {
             
             // Set up topics - support both multi-topic and single-topic formats
             if (content.topics && Array.isArray(content.topics)) {
-                this.topics = content.topics;
+                this.topics = this.normalizeTopics(content.topics);
             } else {
                 // Single topic - wrap in array for consistency
-                this.topics = [content];
+                this.topics = this.normalizeTopics([content]);
             }
             this.currentTopicIndex = 0;
             
@@ -426,6 +624,13 @@ class Host {
         return { title, text: text.trim(), keyTerms };
     }
 
+    normalizeTopics(topics) {
+        return (topics || []).map((topic, index) => ({
+            ...topic,
+            id: topic?.id || `topic-${index + 1}`
+        }));
+    }
+
     async loadContentFiles() {
         try {
             const response = await fetch('/api/content');
@@ -460,7 +665,7 @@ class Host {
         
         let html = currentTopic.text || '';
         currentTopic.keyTerms?.forEach(term => {
-            html = html.replace(`{{${term.id}}}`, `<span class="blank">[answer]</span>`);
+            html = html.replace(`{{${term.id}}}`, `<span class="blank">${this.buildBlankHint(term.term || '')}</span>`);
         });
 
         const totalTopics = this.topics?.length || 1;
@@ -508,12 +713,50 @@ class Host {
         }
     }
 
+    buildBlankHint(answer) {
+        if (!answer) return '____';
+
+        const words = answer.trim().split(/\s+/).filter(Boolean);
+        if (words.length === 0) return '____';
+
+        return words.map(word => {
+            const cleanLen = (word.match(/[A-Za-z0-9]/g) || []).length;
+            const len = Math.max(2, Math.min(cleanLen || word.length, 12));
+            return '_'.repeat(len);
+        }).join(' ');
+    }
+
     switchTopic(index) {
         if (index < 0 || index >= this.topics.length) return;
         
         this.currentTopicIndex = index;
         this.showContentPreview(this.currentContent);
         this.updateGroupInputs();
+        this.refreshGroupStatsForCurrentTopic();
+    }
+
+    getCurrentTopicId() {
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        return currentTopic?.id || 'main';
+    }
+
+    getGroupTopicAnswers(groupName, topicId = this.getCurrentTopicId()) {
+        return this.groupAnswers.get(groupName)?.get(topicId) || new Map();
+    }
+
+    refreshGroupStatsForCurrentTopic() {
+        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
+        const totalBlanks = currentTopic?.keyTerms?.length || 0;
+        const topicId = this.getCurrentTopicId();
+
+        document.querySelectorAll('.group-card').forEach(card => {
+            const groupName = card.dataset.group;
+            const answersMap = this.getGroupTopicAnswers(groupName, topicId);
+            const stats = card.querySelector('.group-answers');
+            if (stats) {
+                stats.textContent = `${answersMap.size}/${totalBlanks} answered`;
+            }
+        });
     }
 
     updateTopicNavButtons() {
@@ -578,7 +821,8 @@ class Host {
         }
 
         const group = this.groups.get(this.selectedGroupName);
-        const groupAnswersMap = this.groupAnswers.get(this.selectedGroupName);
+        const topicId = currentTopic.id || 'main';
+        const groupAnswersMap = this.getGroupTopicAnswers(this.selectedGroupName, topicId);
         
         if (!group) {
             inputsList.innerHTML = '<p class="empty-state">Group not found</p>';
@@ -627,33 +871,16 @@ class Host {
 
             // Reset group answers tracking
             this.groupAnswers.clear();
-            
-            // Show progress section
-            document.getElementById('group-progress').classList.remove('hidden');
-            document.getElementById('reveal-answers-btn').disabled = false;
 
-            // Update progress list
-            this.updateProgressList();
+            const revealBtn = document.getElementById('reveal-answers-btn');
+            if (revealBtn) {
+                revealBtn.disabled = false;
+            }
+
+            this.refreshGroupStatsForCurrentTopic();
 
             alert('Content broadcasted to all groups!');
         });
-    }
-
-    updateProgressList() {
-        const container = document.getElementById('progress-list');
-        // Get total blanks from current topic
-        const currentTopic = this.topics[this.currentTopicIndex] || this.currentContent;
-        const totalBlanks = currentTopic?.keyTerms?.length || 0;
-
-        container.innerHTML = Array.from(this.groups.values()).map(group => `
-            <div class="progress-item" data-group="${group.name}">
-                <span class="group-name">${group.name}</span>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: 0%"></div>
-                </div>
-                <span class="progress-text">0/${totalBlanks}</span>
-            </div>
-        `).join('');
     }
 
     revealAnswers() {
@@ -771,6 +998,7 @@ class Host {
             </div>
             <div class="wheel-controls">
                 <button class="btn btn-primary spin-btn" data-wheel-id="${config.id}">Spin</button>
+                <button class="btn btn-secondary remove-last-btn" data-wheel-id="${config.id}">Remove Result</button>
                 <button class="btn btn-secondary reset-btn" data-wheel-id="${config.id}">Reset</button>
             </div>
         `;
@@ -791,36 +1019,11 @@ class Host {
 
         // Event handlers
         wheel.onSpinComplete = (data) => {
-            this.updateWheelResult(config.id, data.result);
-            
-            // Track the result
-            if (data.result) {
-                this.spinResults.push({
-                    wheelId: config.id,
-                    wheelName: config.name,
-                    wheelType: config.type,
-                    result: data.result.value,
-                    timestamp: Date.now()
-                });
-            }
-            
-            // Show results modal
-            this.showResultsModal();
-
-            if (this.dependentMode && config.type === 'independent') {
-                this.handleDependentUpdate(config.id, data.result);
-            }
-
-            // Broadcast to groups
-            this.socket.emit('spin-wheel', {
-                roomCode: this.roomCode,
-                hostToken: this.hostToken,
-                wheelId: config.id,
-                result: data.result
-            });
+            this.handleWheelSpinComplete(config, data);
         };
 
-        card.querySelector('.spin-btn').addEventListener('click', () => wheel.spin());
+        card.querySelector('.spin-btn').addEventListener('click', () => this.spinSingleWheel(config.id));
+        card.querySelector('.remove-last-btn').addEventListener('click', () => this.removeLastResultForWheel(config.id));
         card.querySelector('.reset-btn').addEventListener('click', () => wheel.reset());
         card.querySelector('.edit-wheel-btn').addEventListener('click', () => {
             this.openWheelModal(config.id);
@@ -836,6 +1039,103 @@ class Host {
         if (resultEl) {
             resultEl.querySelector('.result-value').textContent = result ? result.value : '-';
         }
+    }
+
+    handleWheelSpinComplete(config, data) {
+        this.updateWheelResult(config.id, data.result);
+
+        if (data.result) {
+            this.spinResults.push({
+                wheelId: config.id,
+                wheelName: config.name,
+                wheelType: config.type,
+                result: data.result.value,
+                sourceKey: config.type === 'dependent' ? (this.dependentSourceByWheel.get(config.id) || null) : null,
+                timestamp: Date.now()
+            });
+        }
+
+        if (this.dependentMode && config.type === 'independent') {
+            this.handleDependentUpdate(config.id, data.result);
+        }
+
+        this.socket.emit('spin-wheel', {
+            roomCode: this.roomCode,
+            hostToken: this.hostToken,
+            wheelId: config.id,
+            result: data.result
+        });
+    }
+
+    startSpinBatch() {
+        if (this.activeSpinBatch) {
+            return this.activeSpinBatch;
+        }
+
+        let resolveDone;
+        const donePromise = new Promise((resolve) => {
+            resolveDone = resolve;
+        });
+
+        this.spinResults = [];
+        this.renderSpinResults();
+        document.getElementById('result-modal').classList.remove('active');
+
+        this.activeSpinBatch = {
+            pending: 0,
+            resolveDone,
+            donePromise
+        };
+
+        return this.activeSpinBatch;
+    }
+
+    queueWheelSpin(wheel, sourceKey = null, delayMs = 0) {
+        const batch = this.startSpinBatch();
+        batch.pending += 1;
+
+        if (sourceKey) {
+            this.dependentSourceByWheel.set(wheel.id, sourceKey);
+        }
+
+        const runSpin = () => {
+            wheel.spin()
+                .catch(error => {
+                    console.error('Error spinning wheel:', wheel?.wheelConfig?.name || wheel.id, error);
+                })
+                .finally(() => {
+                    this.finishWheelSpin();
+                });
+        };
+
+        if (delayMs > 0) {
+            setTimeout(runSpin, delayMs);
+        } else {
+            runSpin();
+        }
+    }
+
+    finishWheelSpin() {
+        if (!this.activeSpinBatch) return;
+
+        this.activeSpinBatch.pending = Math.max(0, this.activeSpinBatch.pending - 1);
+
+        if (this.activeSpinBatch.pending === 0) {
+            this.showResultsModal();
+            this.activeSpinBatch.resolveDone();
+            this.activeSpinBatch = null;
+        }
+    }
+
+    async spinSingleWheel(wheelId) {
+        if (this.activeSpinBatch) return;
+
+        const wheel = this.wheels.get(wheelId);
+        if (!wheel || wheel.isCurrentlySpinning()) return;
+
+        const batch = this.startSpinBatch();
+        this.queueWheelSpin(wheel);
+        await batch.donePromise;
     }
 
     showResultsModal() {
@@ -863,12 +1163,113 @@ class Host {
     }
 
     removeSpinResult(index) {
+        const result = this.spinResults[index];
+        if (!result) return;
+
+        const removed = this.removeResultFromWheel(result);
+        if (!removed) {
+            this.setSpinFeedback('Could not remove that name from the wheel.', 'error');
+            return;
+        }
+
         this.spinResults.splice(index, 1);
         this.renderSpinResults();
+        this.setSpinFeedback(`Removed "${result.result}" from ${result.wheelName}.`, 'success');
         
         if (this.spinResults.length === 0) {
             document.getElementById('result-modal').classList.remove('active');
         }
+    }
+
+    removeLastResultForWheel(wheelId) {
+        const wheel = this.wheels.get(wheelId);
+        if (!wheel) return;
+
+        const latest = [...this.spinResults].reverse().find(r => r.wheelId === wheelId);
+        const resultValue = latest?.result || wheel.getResult()?.value;
+
+        if (!resultValue) {
+            this.setSpinFeedback('Spin the wheel first before removing a result.', 'error');
+            return;
+        }
+
+        const removed = this.removeResultFromWheel({
+            wheelId,
+            result: resultValue,
+            sourceKey: latest?.sourceKey || null
+        });
+
+        if (!removed) {
+            this.setSpinFeedback('Could not remove that name from the wheel.', 'error');
+            return;
+        }
+
+        this.spinResults = this.spinResults.filter(r => !(r.wheelId === wheelId && r.result === resultValue));
+        this.renderSpinResults();
+        this.updateWheelResult(wheelId, null);
+        wheel.result = null;
+        this.setSpinFeedback(`Removed "${resultValue}" from ${wheel.wheelConfig?.name || 'wheel'}.`, 'success');
+    }
+
+    setSpinFeedback(message, type = '') {
+        const feedbackEl = document.getElementById('spin-results-feedback');
+        if (!feedbackEl) return;
+
+        feedbackEl.textContent = message || '';
+        feedbackEl.className = `spin-feedback${type ? ` ${type}` : ''}`;
+
+        if (this.feedbackTimer) {
+            clearTimeout(this.feedbackTimer);
+            this.feedbackTimer = null;
+        }
+
+        if (message) {
+            this.feedbackTimer = setTimeout(() => {
+                feedbackEl.textContent = '';
+                feedbackEl.className = 'spin-feedback';
+                this.feedbackTimer = null;
+            }, 2500);
+        }
+    }
+
+    removeResultFromWheel(spinResult) {
+        const wheel = this.wheels.get(spinResult.wheelId);
+        if (!wheel || !wheel.wheelConfig) return false;
+
+        const config = wheel.wheelConfig;
+        let removed = false;
+
+        const dependentKey = spinResult.sourceKey || this.dependentSourceByWheel.get(spinResult.wheelId) || null;
+
+        if (config.type === 'dependent' && dependentKey && config.data?.[dependentKey]) {
+            removed = this.removeFirstItem(config.data[dependentKey], spinResult.result);
+
+            if (removed) {
+                const activeSource = this.dependentSourceByWheel.get(spinResult.wheelId);
+                if (activeSource && config.data?.[activeSource]) {
+                    wheel.setItems([...config.data[activeSource]], false);
+                } else {
+                    wheel.setItems([...wheel.currentItems], false);
+                }
+            }
+        } else {
+            removed = this.removeFirstItem(config.items, spinResult.result);
+
+            if (removed) {
+                wheel.items = [...config.items];
+                wheel.setItems([...config.items], false);
+            }
+        }
+
+        return removed;
+    }
+
+    removeFirstItem(items, value) {
+        if (!Array.isArray(items)) return false;
+        const index = items.indexOf(value);
+        if (index === -1) return false;
+        items.splice(index, 1);
+        return true;
     }
 
     handleDependentUpdate(sourceWheelId, result) {
@@ -891,11 +1292,10 @@ class Host {
                 
                 if (newItems.length > 0) {
                     wheel.setItems(newItems, true);
-                    
-                    setTimeout(() => {
-                        console.log('Auto-spinning dependent wheel:', wheel.wheelConfig.name);
-                        wheel.spin();
-                    }, 800);
+                    this.dependentSourceByWheel.set(wheelId, result.value);
+
+                    console.log('Auto-spinning dependent wheel:', wheel.wheelConfig.name);
+                    this.queueWheelSpin(wheel, result.value, 800);
                 } else {
                     console.log('No items found for:', result.value);
                 }
@@ -1091,7 +1491,7 @@ class Host {
     }
 
     async spinAllWheels() {
-        if (this.spinAllInProgress) return;
+        if (this.spinAllInProgress || this.activeSpinBatch) return;
 
         this.spinAllInProgress = true;
         const spinBtn = document.getElementById('spin-all-btn');
@@ -1105,8 +1505,17 @@ class Host {
             }
         });
 
+        if (independentWheels.length === 0) {
+            this.spinAllInProgress = false;
+            spinBtn.textContent = '🎲 Spin All';
+            spinBtn.disabled = false;
+            return;
+        }
+
         try {
-            await Promise.all(independentWheels.map(wheel => wheel.spin()));
+            const batch = this.startSpinBatch();
+            independentWheels.forEach(wheel => this.queueWheelSpin(wheel));
+            await batch.donePromise;
         } catch (error) {
             console.error('Error spinning wheels:', error);
         } finally {

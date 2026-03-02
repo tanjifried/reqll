@@ -42,10 +42,16 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.static('public'));
 
+// Serve root index.html (standalone version)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // Game state management
 const activeLobbies = new Map();
 const MAX_GROUPS_PER_LOBBY = 20;
 const LOBBY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+const DISCONNECTED_GROUP_TTL_MS = 20 * 60 * 1000; // 20 minutes
 
 // Wheel configuration storage
 const WHEELS_CONFIG_FILE = path.join(__dirname, 'data', 'wheels-config.json');
@@ -101,6 +107,45 @@ function generateRoomCode() {
   return code;
 }
 
+function generateReconnectCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function countConnectedGroups(lobby) {
+  return Array.from(lobby.groups.values()).filter((group) => group.connected !== false).length;
+}
+
+function getTopicBlankCount(content, topicId) {
+  if (!content) return 0;
+
+  if (content.topics && Array.isArray(content.topics) && content.topics.length > 0) {
+    const topic = content.topics.find((entry, index) => {
+      const id = entry?.id || `topic-${index + 1}`;
+      return id === topicId;
+    });
+    return topic?.keyTerms?.length || 0;
+  }
+
+  return content.keyTerms?.length || 0;
+}
+
+function mapGroupsForHost(lobby) {
+  return Array.from(lobby.groups.values()).map((group) => ({
+    name: group.name,
+    score: group.score,
+    joinedAt: group.joinedAt,
+    connected: group.connected !== false,
+    disconnectedAt: group.disconnectedAt || null,
+    reconnectCode: group.reconnectCode,
+    reconnectToken: group.reconnectToken
+  }));
+}
+
 // Get local IP address for hotspot
 function getLocalIPAddress() {
   const interfaces = os.networkInterfaces();
@@ -114,11 +159,29 @@ function getLocalIPAddress() {
     }
   }
 
-  const priority192 = addresses.find(a => a.address.startsWith('192.168.'));
-  if (priority192) return priority192.address;
+  const isVirtualInterface = (name = '') => {
+    const lower = name.toLowerCase();
+    return (
+      lower.includes('tailscale') ||
+      lower.includes('docker') ||
+      lower.includes('vbox') ||
+      lower.includes('virbr') ||
+      lower.includes('vmnet') ||
+      lower.includes('br-')
+    );
+  };
 
-  const priority10 = addresses.find(a => a.address.startsWith('10.'));
-  if (priority10) return priority10.address;
+  const primary = addresses.find(a => {
+    const n = a.name.toLowerCase();
+    return !isVirtualInterface(n) && (n.startsWith('wl') || n.startsWith('wlan') || n.startsWith('en') || n.startsWith('eth'));
+  });
+  if (primary) return primary.address;
+
+  const privateLan = addresses.find(a => {
+    if (isVirtualInterface(a.name)) return false;
+    return a.address.startsWith('192.168.') || a.address.startsWith('10.') || /^172\.(1[6-9]|2\d|3[0-1])\./.test(a.address);
+  });
+  if (privateLan) return privateLan.address;
 
   if (addresses.length > 0) {
     return addresses[0].address;
@@ -135,6 +198,23 @@ setInterval(() => {
       logger.warn('Lobby timed out, closing', { roomCode: code });
       io.to(code).emit('lobby-closed', { reason: 'timeout' });
       activeLobbies.delete(code);
+      continue;
+    }
+
+    let removedAnyGroup = false;
+    lobby.groups.forEach((group, groupName) => {
+      if (group.connected === false && group.disconnectedAt && (now - group.disconnectedAt) > DISCONNECTED_GROUP_TTL_MS) {
+        lobby.groups.delete(groupName);
+        removedAnyGroup = true;
+        logger.info('Removed expired disconnected group', { roomCode: code, groupName });
+      }
+    });
+
+    if (removedAnyGroup) {
+      io.to(`host-${code}`).emit('group-left', {
+        groupCount: countConnectedGroups(lobby),
+        groups: mapGroupsForHost(lobby)
+      });
     }
   }
 }, 60000);
@@ -325,6 +405,32 @@ app.get('/api/qr/:roomCode', async (req, res) => {
   }
 });
 
+// Generate QR code for an arbitrary link
+app.get('/api/qr-link', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
+
+    const qrCode = await QRCode.toDataURL(parsed.toString());
+    res.json({ qrCode, url: parsed.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Logs API endpoints
 
 // Get logs
@@ -444,7 +550,7 @@ io.on('connection', (socket) => {
   // Group joins a lobby
   socket.on('join-lobby', (data, callback) => {
     try {
-      const { roomCode, groupName } = data;
+      const { roomCode, groupName, reconnectToken, reconnectCode } = data;
       const lobby = activeLobbies.get(roomCode);
 
       if (!lobby) {
@@ -474,6 +580,9 @@ io.on('connection', (socket) => {
 
       if (lobby.groups.has(sanitizedGroupName)) {
         const existingGroup = lobby.groups.get(sanitizedGroupName);
+        const matchesReconnectSecret =
+          (typeof reconnectToken === 'string' && reconnectToken.length > 0 && reconnectToken === existingGroup.reconnectToken) ||
+          (typeof reconnectCode === 'string' && reconnectCode.length > 0 && reconnectCode === existingGroup.reconnectCode);
         
         // Safely check if existing socket is still connected
         let isConnected = false;
@@ -484,12 +593,43 @@ io.on('connection', (socket) => {
           logger.error('Error checking existing socket', { error: err.message });
         }
         
-        if (isConnected) {
+        if (isConnected && !matchesReconnectSecret) {
           return callback({ error: 'Group name already taken' });
         } else {
-          // Remove disconnected group's stale entry
-          lobby.groups.delete(sanitizedGroupName);
-          logger.info('Removed stale group entry', { groupName: sanitizedGroupName, roomCode });
+          existingGroup.socketId = socket.id;
+          existingGroup.connected = true;
+          existingGroup.disconnectedAt = null;
+          existingGroup.lastSeenAt = Date.now();
+
+          if (!existingGroup.reconnectToken) {
+            existingGroup.reconnectToken = uuidv4();
+          }
+          if (!existingGroup.reconnectCode) {
+            existingGroup.reconnectCode = generateReconnectCode();
+          }
+
+          lobby.lastActivity = Date.now();
+          socket.join(roomCode);
+          socket.groupName = sanitizedGroupName;
+          socket.roomCode = roomCode;
+
+          io.to(`host-${roomCode}`).emit('group-joined', {
+            groupName: sanitizedGroupName,
+            groupCount: countConnectedGroups(lobby),
+            groups: mapGroupsForHost(lobby)
+          });
+
+          callback({
+            success: true,
+            groupName: sanitizedGroupName,
+            reconnectToken: existingGroup.reconnectToken,
+            reconnectCode: existingGroup.reconnectCode,
+            lobbyStatus: lobby.status,
+            content: lobby.status === 'active' ? lobby.content : null
+          });
+
+          logger.info('Group rejoined lobby', { groupName: sanitizedGroupName, roomCode });
+          return;
         }
       }
 
@@ -500,7 +640,13 @@ io.on('connection', (socket) => {
         socketId: socket.id,
         answers: new Map(),
         score: 0,
-        joinedAt: Date.now()
+        joinedAt: Date.now(),
+        connected: true,
+        disconnectedAt: null,
+        lastSeenAt: Date.now(),
+        reconnectToken: uuidv4(),
+        reconnectCode: generateReconnectCode(),
+        completedTopics: new Set()
       };
 
       lobby.groups.set(sanitizedGroupName, group);
@@ -512,17 +658,15 @@ io.on('connection', (socket) => {
       // Notify host
       io.to(`host-${roomCode}`).emit('group-joined', {
         groupName: sanitizedGroupName,
-        groupCount: lobby.groups.size,
-        groups: Array.from(lobby.groups.values()).map(g => ({
-          name: g.name,
-          score: g.score,
-          joinedAt: g.joinedAt
-        }))
+        groupCount: countConnectedGroups(lobby),
+        groups: mapGroupsForHost(lobby)
       });
 
       callback({
         success: true,
         groupName: sanitizedGroupName,
+        reconnectToken: group.reconnectToken,
+        reconnectCode: group.reconnectCode,
         lobbyStatus: lobby.status,
         content: lobby.status === 'active' ? lobby.content : null
       });
@@ -573,7 +717,7 @@ io.on('connection', (socket) => {
   // Group submits an answer
   socket.on('submit-answer', (data, callback) => {
     try {
-      const { roomCode, groupName, blankId, answer } = data;
+      const { roomCode, groupName, topicId, blankId, answer } = data;
       const lobby = activeLobbies.get(roomCode);
 
       if (!lobby) {
@@ -585,36 +729,88 @@ io.on('connection', (socket) => {
         return callback({ error: 'Group not found' });
       }
 
+      group.lastSeenAt = Date.now();
+      group.connected = true;
+      group.disconnectedAt = null;
+
+      const normalizedTopicId = topicId || 'main';
+
       // Store answer
-      group.answers.set(blankId, {
+      group.answers.set(`${normalizedTopicId}:${blankId}`, {
+        topicId: normalizedTopicId,
+        blankId,
         answer: String(answer),
         submittedAt: Date.now()
       });
 
       lobby.lastActivity = Date.now();
 
+      logger.info('Answer submitted', {
+        roomCode,
+        groupName,
+        topicId: normalizedTopicId,
+        blankId,
+        answer: String(answer)
+      });
+
+      const topicAnswerCount = Array.from(group.answers.values())
+        .filter(entry => entry.topicId === normalizedTopicId)
+        .length;
+      const topicBlankCount = getTopicBlankCount(lobby.content, normalizedTopicId);
+
+      if (topicBlankCount > 0) {
+        if (!group.completedTopics) {
+          group.completedTopics = new Set();
+        }
+
+        if (topicAnswerCount >= topicBlankCount && !group.completedTopics.has(normalizedTopicId)) {
+          group.completedTopics.add(normalizedTopicId);
+
+          const completedAt = Date.now();
+          const payload = {
+            groupName,
+            topicId: normalizedTopicId,
+            completedAt,
+            submittedCount: topicAnswerCount,
+            requiredCount: topicBlankCount
+          };
+
+          io.to(`host-${roomCode}`).emit('topic-completed', payload);
+          logger.info('Group completed topic input', {
+            roomCode,
+            ...payload
+          });
+        }
+      }
+
       // Notify host - safely
       const hostRoom = io.sockets.adapter.rooms.get(`host-${roomCode}`);
       if (hostRoom && hostRoom.size > 0) {
         io.to(`host-${roomCode}`).emit('answer-submitted', {
           groupName,
+          topicId: normalizedTopicId,
           blankId,
           answer: String(answer),
-          totalAnswers: group.answers.size
+          totalAnswers: topicAnswerCount,
+          submittedAt: Date.now()
         });
       }
 
-      callback({ success: true });
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
     } catch (error) {
       logger.error('Error in submit-answer', { error: error.message });
-      callback({ error: error.message });
+      if (typeof callback === 'function') {
+        callback({ error: error.message });
+      }
     }
   });
 
   // Host reveals all answers
   socket.on('reveal-answers', (data) => {
     try {
-      const { roomCode, hostToken, answers } = data;
+      const { roomCode, hostToken, answers, topicId } = data;
       const lobby = activeLobbies.get(roomCode);
 
       if (!lobby || lobby.hostToken !== hostToken) return;
@@ -622,7 +818,7 @@ io.on('connection', (socket) => {
       lobby.lastActivity = Date.now();
 
       // Broadcast correct answers to all groups
-      io.to(roomCode).emit('answers-revealed', { answers });
+      io.to(roomCode).emit('answers-revealed', { answers, topicId: topicId || 'main' });
     } catch (error) {
       logger.error('Error revealing answers', { error: error.message, roomCode });
     }
@@ -686,7 +882,11 @@ io.on('connection', (socket) => {
         content: lobby.content,
         groups: Array.from(lobby.groups.values()).map(g => ({
           name: g.name,
-          score: g.score
+          score: g.score,
+          connected: g.connected !== false,
+          disconnectedAt: g.disconnectedAt || null,
+          reconnectCode: g.reconnectCode,
+          reconnectToken: g.reconnectToken
         })),
         wheelResults: lobby.wheelResults
       });
@@ -716,11 +916,7 @@ io.on('connection', (socket) => {
       callback({
         success: true,
         roomCode,
-        groups: Array.from(lobby.groups.values()).map(g => ({
-          name: g.name,
-          score: g.score,
-          joinedAt: g.joinedAt
-        }))
+        groups: mapGroupsForHost(lobby)
       });
 
       logger.info('Host reconnected', { roomCode });
@@ -738,7 +934,13 @@ io.on('connection', (socket) => {
       try {
         const lobby = activeLobbies.get(socket.roomCode);
         if (lobby) {
-          lobby.groups.delete(socket.groupName);
+          const group = lobby.groups.get(socket.groupName);
+          if (group) {
+            group.connected = false;
+            group.socketId = null;
+            group.disconnectedAt = Date.now();
+            group.lastSeenAt = Date.now();
+          }
           lobby.lastActivity = Date.now();
 
           // Notify host - safe emit
@@ -746,15 +948,12 @@ io.on('connection', (socket) => {
           if (hostRoom && hostRoom.size > 0) {
             io.to(`host-${socket.roomCode}`).emit('group-left', {
               groupName: socket.groupName,
-              groupCount: lobby.groups.size,
-              groups: Array.from(lobby.groups.values()).map(g => ({
-                name: g.name,
-                score: g.score
-              }))
+              groupCount: countConnectedGroups(lobby),
+              groups: mapGroupsForHost(lobby)
             });
           }
 
-          logger.info('Group left lobby', { groupName: socket.groupName, roomCode: socket.roomCode });
+          logger.info('Group marked disconnected', { groupName: socket.groupName, roomCode: socket.roomCode });
         }
       } catch (error) {
         logger.error('Error in disconnect handler', { error: error.message });

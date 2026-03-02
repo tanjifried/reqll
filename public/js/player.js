@@ -21,12 +21,20 @@ class Player {
         this.content = null;
         this.keyTerms = [];
         this.userAnswers = new Map();
+        this.pendingAnswers = new Map();
+        this.reconnectToken = '';
+        this.reconnectCode = '';
+        this.autoJoinFromUrl = false;
         
         // Multi-topic support
         this.topics = []; // Array of topic objects
         this.currentTopicIndex = 0;
         this.topicAnswers = {}; // { topicId: { blankId: answer } }
         this.revealedTopics = new Set(); // Track which topics have revealed answers
+        this.revealedAnswersByTopic = new Map();
+        this.submitDebounceTimers = new Map();
+        this.completionLink = 'https://docs.google.com/document/d/18x2SyCVEtisyj9oKiPi9wO36Ue3wB2G2i7OUJnCMxMg/edit?usp=sharing';
+        this.completionQrShown = false;
         
         this.init();
     }
@@ -39,18 +47,46 @@ class Player {
         // Check for existing session and auto-reconnect
         const savedRoomCode = sessionStorage.getItem('roomCode');
         const savedGroupName = sessionStorage.getItem('groupName');
+        const savedReconnectToken = sessionStorage.getItem('reconnectToken');
+        const savedReconnectCode = sessionStorage.getItem('reconnectCode');
         
         if (savedRoomCode && savedGroupName) {
             this.roomCode = savedRoomCode;
             this.groupName = savedGroupName;
+            this.reconnectToken = savedReconnectToken || '';
+            this.reconnectCode = savedReconnectCode || '';
+        }
+
+        if (this.autoJoinFromUrl && this.roomCode && this.groupName) {
+            document.getElementById('room-code').value = this.roomCode;
+            document.getElementById('group-name').value = this.groupName;
+        }
+
+        const reconnectInput = document.getElementById('reconnect-code-input');
+        if (reconnectInput && this.reconnectCode) {
+            reconnectInput.value = this.reconnectCode;
         }
     }
 
     parseUrlParams() {
         const params = new URLSearchParams(window.location.search);
         const roomCode = params.get('room');
+        const groupName = params.get('group');
+        const reconnectCode = params.get('reconnect');
         if (roomCode) {
             document.getElementById('room-code').value = roomCode.toUpperCase();
+            this.roomCode = roomCode.toUpperCase();
+        }
+        if (groupName) {
+            document.getElementById('group-name').value = groupName;
+            this.groupName = groupName;
+        }
+        if (reconnectCode) {
+            this.reconnectCode = reconnectCode.toUpperCase();
+        }
+
+        if (roomCode && groupName) {
+            this.autoJoinFromUrl = true;
         }
     }
 
@@ -61,6 +97,20 @@ class Player {
 
         document.getElementById('reconnect-btn').addEventListener('click', () => {
             this.reconnect();
+        });
+
+        document.getElementById('apply-reconnect-code-btn')?.addEventListener('click', () => {
+            this.applyReconnectCodeFromInput();
+        });
+
+        document.getElementById('reconnect-code-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.applyReconnectCodeFromInput();
+            }
+        });
+
+        document.getElementById('close-completion-modal')?.addEventListener('click', () => {
+            document.getElementById('completion-modal')?.classList.add('hidden');
         });
 
         ['room-code', 'group-name'].forEach(id => {
@@ -83,6 +133,7 @@ class Player {
         this.socket.on('connect', () => {
             console.log('Connected to server');
             this.showConnectionStatus(true);
+            this.flushPendingAnswers();
             
             // Auto-reconnect if we have session data
             if (this.roomCode && this.groupName) {
@@ -124,7 +175,7 @@ class Player {
 
         this.socket.on('answers-revealed', (data) => {
             try {
-                this.showRevealedAnswers(data.answers);
+                this.showRevealedAnswers(data);
             } catch (err) {
                 console.error('Error in answers-revealed handler:', err);
             }
@@ -153,6 +204,15 @@ class Player {
         const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
         const groupName = document.getElementById('group-name').value.trim();
 
+        const roomChanged = this.roomCode && this.roomCode !== roomCode;
+        const groupChanged = this.groupName && this.groupName !== groupName;
+        if (roomChanged || groupChanged) {
+            this.reconnectToken = '';
+            this.reconnectCode = '';
+            sessionStorage.removeItem('reconnectToken');
+            sessionStorage.removeItem('reconnectCode');
+        }
+
         if (!roomCode || roomCode.length !== 6) {
             this.showError('Please enter a valid 6-character room code');
             return;
@@ -169,6 +229,12 @@ class Player {
         // Save to session for reconnection
         sessionStorage.setItem('roomCode', this.roomCode);
         sessionStorage.setItem('groupName', this.groupName);
+        if (this.reconnectToken) {
+            sessionStorage.setItem('reconnectToken', this.reconnectToken);
+        }
+        if (this.reconnectCode) {
+            sessionStorage.setItem('reconnectCode', this.reconnectCode);
+        }
 
         // Disable button to prevent double-join
         const joinBtn = document.getElementById('join-btn');
@@ -183,7 +249,12 @@ class Player {
             return;
         }
 
-        this.socket.emit('join-lobby', { roomCode, groupName }, (response) => {
+        this.socket.emit('join-lobby', {
+            roomCode,
+            groupName,
+            reconnectToken: this.reconnectToken,
+            reconnectCode: this.reconnectCode
+        }, (response) => {
             joinBtn.disabled = false;
             joinBtn.textContent = 'Join Game';
             
@@ -196,8 +267,24 @@ class Player {
                 return;
             }
 
+            if (response.groupName) {
+                this.groupName = response.groupName;
+                sessionStorage.setItem('groupName', this.groupName);
+            }
+
+            if (response.reconnectToken) {
+                this.reconnectToken = response.reconnectToken;
+                sessionStorage.setItem('reconnectToken', this.reconnectToken);
+            }
+
+            if (response.reconnectCode) {
+                this.reconnectCode = response.reconnectCode;
+                sessionStorage.setItem('reconnectCode', this.reconnectCode);
+            }
+
             document.getElementById('player-group-name').textContent = this.groupName;
             document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
+            this.flushPendingAnswers();
 
             if (response.lobbyStatus === 'active' && response.content) {
                 this.loadContent(response.content);
@@ -218,25 +305,29 @@ class Player {
             this.currentTopicIndex = 0;
             this.topicAnswers = {};
             this.revealedTopics = new Set();
+            this.revealedAnswersByTopic = new Map();
+            this.clearSubmitTimers();
+            this.completionQrShown = false;
+            document.getElementById('completion-modal')?.classList.add('hidden');
 
             // Show room code in header
             document.getElementById('display-room-code').textContent = this.roomCode;
 
             // Check if multi-topic content
             if (content.topics && Array.isArray(content.topics) && content.topics.length > 0) {
-                this.topics = content.topics;
+                this.topics = this.normalizeTopics(content.topics);
                 document.getElementById('topic-tabs').classList.remove('hidden');
                 document.getElementById('topic-progress').classList.remove('hidden');
                 this.renderTabs();
                 this.loadTopic(0);
             } else {
                 // Single topic - backward compatible
-                this.topics = [{
+                this.topics = this.normalizeTopics([{
                     id: 'main',
                     title: content.title || 'Content',
                     text: content.text || '',
                     keyTerms: content.keyTerms || []
-                }];
+                }]);
                 document.getElementById('topic-tabs').classList.add('hidden');
                 document.getElementById('topic-progress').classList.add('hidden');
                 this.loadTopic(0);
@@ -270,6 +361,13 @@ class Player {
                 this.switchTopic(topicIndex);
             });
         });
+    }
+
+    normalizeTopics(topics) {
+        return (topics || []).map((topic, index) => ({
+            ...topic,
+            id: topic?.id || `topic-${index + 1}`
+        }));
     }
 
     updateProgress() {
@@ -332,7 +430,9 @@ class Player {
 
         // Replace blanks with inputs (keep on single line to avoid whitespace issues)
         keyTerms.forEach(term => {
-            const inputTag = `<input type="text" class="blank-input" data-blank-id="${term.id}" data-topic-id="${topic.id}" placeholder="?" autocomplete="off">`;
+            const hint = this.buildBlankHint(term.term || '');
+            const sizeCh = Math.max(8, Math.min(24, hint.length + 1));
+            const inputTag = `<input type="text" class="blank-input" data-blank-id="${term.id}" data-topic-id="${topic.id}" placeholder="${hint}" autocomplete="off" style="width:${sizeCh}ch">`;
             html = html.split(`{{${term.id}}}`).join(inputTag);
         });
 
@@ -362,6 +462,10 @@ class Player {
 
         // Add event listeners
         contentArea.querySelectorAll('.blank-input').forEach(input => {
+            input.addEventListener('input', () => {
+                this.queueAnswerSubmit(input.dataset.topicId, input.dataset.blankId, input.value);
+            });
+
             input.addEventListener('blur', () => {
                 try {
                     input.classList.add('filled');
@@ -395,6 +499,25 @@ class Player {
         this.updateProgress();
     }
 
+    queueAnswerSubmit(topicId, blankId, answer) {
+        const key = `${topicId}:${blankId}`;
+        if (this.submitDebounceTimers.has(key)) {
+            clearTimeout(this.submitDebounceTimers.get(key));
+        }
+
+        const timer = setTimeout(() => {
+            this.submitDebounceTimers.delete(key);
+            this.submitAnswer(topicId, blankId, answer);
+        }, 350);
+
+        this.submitDebounceTimers.set(key, timer);
+    }
+
+    clearSubmitTimers() {
+        this.submitDebounceTimers.forEach(timer => clearTimeout(timer));
+        this.submitDebounceTimers.clear();
+    }
+
     submitAnswer(topicId, blankId, answer) {
         if (!answer || !answer.trim()) return;
 
@@ -413,6 +536,7 @@ class Player {
         // Only submit if socket is connected
         if (!this.socket.connected) {
             console.log('Socket not connected, answer saved locally');
+            this.pendingAnswers.set(`${topicId}:${blankId}`, { topicId, blankId, answer });
             return;
         }
 
@@ -422,13 +546,31 @@ class Player {
             topicId: topicId,
             blankId: blankId,
             answer: answer
+        }, (response) => {
+            if (response?.error) {
+                console.warn('Submit answer failed:', response.error);
+                this.pendingAnswers.set(`${topicId}:${blankId}`, { topicId, blankId, answer });
+                return;
+            }
+
+            this.pendingAnswers.delete(`${topicId}:${blankId}`);
+        });
+    }
+
+    flushPendingAnswers() {
+        if (!this.socket?.connected || this.pendingAnswers.size === 0) return;
+
+        const pending = Array.from(this.pendingAnswers.values());
+        pending.forEach((entry) => {
+            this.submitAnswer(entry.topicId, entry.blankId, entry.answer);
         });
     }
 
     showRevealedAnswers(data) {
         // Handle both single-topic (array) and multi-topic (object) formats
         const answers = data.answers || data;
-        const topicId = data.topicId;
+        const topicId = data.topicId || this.topics[this.currentTopicIndex]?.id || 'main';
+        this.revealedAnswersByTopic.set(topicId, answers || []);
         
         // If topicId provided, only reveal for that topic
         if (topicId) {
@@ -449,13 +591,14 @@ class Player {
     showRevealedForTopic(topicId, answers) {
         const answersSection = document.getElementById('answers-section');
         const revealedContent = document.getElementById('revealed-content');
+        const resolvedAnswers = answers || this.revealedAnswersByTopic.get(topicId) || [];
         
-        if (!answers || answers.length === 0) {
+        if (!resolvedAnswers || resolvedAnswers.length === 0) {
             answersSection.classList.add('hidden');
             return;
         }
 
-        revealedContent.innerHTML = answers.map(ans => `
+        revealedContent.innerHTML = resolvedAnswers.map(ans => `
             <div class="revealed-item">
                 <span class="blank-label">${ans.blankId}:</span>
                 <span class="correct-answer">${ans.answer}</span>
@@ -467,7 +610,7 @@ class Player {
         // Update the inputs in the current topic
         const currentTopic = this.topics[this.currentTopicIndex];
         if (currentTopic && currentTopic.id === topicId) {
-            answers.forEach(ans => {
+            resolvedAnswers.forEach(ans => {
                 const input = document.querySelector(`[data-blank-id="${ans.blankId}"]`);
                 if (input) {
                     input.value = ans.answer;
@@ -486,6 +629,52 @@ class Player {
                 tab.classList.add('completed');
             }
         }
+
+        this.maybeShowCompletionQr();
+    }
+
+    maybeShowCompletionQr() {
+        if (this.completionQrShown) return;
+        if (!this.topics?.length) return;
+        if (this.revealedTopics.size < this.topics.length) return;
+
+        this.completionQrShown = true;
+        this.showCompletionQr();
+    }
+
+    async showCompletionQr() {
+        try {
+            const response = await fetch(`/api/qr-link?url=${encodeURIComponent(this.completionLink)}`);
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data?.error || 'Failed to generate QR code');
+            }
+
+            const qrEl = document.getElementById('completion-qr');
+            const linkEl = document.getElementById('completion-link');
+            const modalEl = document.getElementById('completion-modal');
+
+            if (qrEl) qrEl.src = data.qrCode;
+            if (linkEl) linkEl.href = data.url || this.completionLink;
+            if (modalEl) modalEl.classList.remove('hidden');
+        } catch (error) {
+            console.error('Error showing completion QR:', error);
+            this.showToast('All topics complete. Opening link directly.', 'info');
+            window.open(this.completionLink, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    buildBlankHint(answer) {
+        if (!answer) return '____';
+
+        const words = answer.trim().split(/\s+/).filter(Boolean);
+        if (words.length === 0) return '____';
+
+        return words.map(word => {
+            const cleanLen = (word.match(/[A-Za-z0-9]/g) || []).length;
+            const len = Math.max(2, Math.min(cleanLen || word.length, 12));
+            return '_'.repeat(len);
+        }).join(' ');
     }
 
     showWheelResult(result) {
@@ -582,8 +771,30 @@ class Player {
         }
     }
 
+    applyReconnectCodeFromInput() {
+        const input = document.getElementById('reconnect-code-input');
+        if (!input) return;
+
+        const reconnectCode = input.value.trim().toUpperCase();
+        if (!reconnectCode) {
+            this.showToast('Please enter a reconnect code first.', 'info');
+            return;
+        }
+
+        this.reconnectCode = reconnectCode;
+        sessionStorage.setItem('reconnectCode', reconnectCode);
+        input.value = reconnectCode;
+        this.showToast('Reconnect code saved. Attempting reconnect...', 'success');
+        this.reconnect();
+    }
+
     attemptRejoin() {
-        this.socket.emit('join-lobby', { roomCode: this.roomCode, groupName: this.groupName }, (response) => {
+        this.socket.emit('join-lobby', {
+            roomCode: this.roomCode,
+            groupName: this.groupName,
+            reconnectToken: this.reconnectToken,
+            reconnectCode: this.reconnectCode
+        }, (response) => {
             if (response.error) {
                 console.log('Failed to rejoin:', response.error);
                 this.showError(response.error);
@@ -591,9 +802,25 @@ class Player {
                 return;
             }
 
+            if (response.groupName) {
+                this.groupName = response.groupName;
+                sessionStorage.setItem('groupName', this.groupName);
+            }
+
+            if (response.reconnectToken) {
+                this.reconnectToken = response.reconnectToken;
+                sessionStorage.setItem('reconnectToken', this.reconnectToken);
+            }
+
+            if (response.reconnectCode) {
+                this.reconnectCode = response.reconnectCode;
+                sessionStorage.setItem('reconnectCode', this.reconnectCode);
+            }
+
             console.log('Successfully rejoined lobby');
             document.getElementById('player-group-name').textContent = this.groupName;
             document.getElementById('waiting-group-name').textContent = `Joined as: ${this.groupName}`;
+            this.flushPendingAnswers();
 
             if (response.lobbyStatus === 'active' && response.content) {
                 this.loadContent(response.content);
@@ -606,8 +833,12 @@ class Player {
     clearSession() {
         sessionStorage.removeItem('roomCode');
         sessionStorage.removeItem('groupName');
+        sessionStorage.removeItem('reconnectToken');
+        sessionStorage.removeItem('reconnectCode');
         this.roomCode = '';
         this.groupName = '';
+        this.reconnectToken = '';
+        this.reconnectCode = '';
     }
 }
 

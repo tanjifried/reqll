@@ -6,7 +6,37 @@
     <title>reqll - Host Dashboard</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <link rel="stylesheet" href="css/host.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: local('Inter'), local('Inter-Regular');
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+            src: local('Inter Medium'), local('Inter-Medium');
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 600;
+            font-display: swap;
+            src: local('Inter SemiBold'), local('Inter-SemiBold');
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: local('Inter Bold'), local('Inter-Bold');
+        }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -66,6 +96,14 @@
                             <div class="empty-state">
                                 <p>No groups connected yet</p>
                                 <p class="hint">Share the room code or QR code to let groups join</p>
+                            </div>
+                        </div>
+
+                        <div class="reconnect-panel">
+                            <h3>Reconnect Help</h3>
+                            <p class="hint">Share a reconnect link or code with disconnected groups.</p>
+                            <div id="reconnect-list" class="reconnect-list">
+                                <p class="empty-hint">No disconnected groups.</p>
                             </div>
                         </div>
 
@@ -129,6 +167,13 @@
                         <!-- Group Inputs View -->
                         <div id="group-inputs" class="group-inputs hidden">
                             <div id="group-inputs-list" class="inputs-list"></div>
+                        </div>
+
+                        <div class="input-log-panel">
+                            <h3>Input Activity Log</h3>
+                            <div id="input-log-list" class="input-log-list">
+                                <p class="empty-hint">No input activity yet.</p>
+                            </div>
                         </div>
 
                         <div class="host-controls">
@@ -273,6 +318,7 @@ Group B: David, Eve, Frank"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <span id="spin-results-feedback" class="spin-feedback" aria-live="polite"></span>
                     <button id="clear-results-btn" class="btn btn-secondary">Clear All</button>
                     <button id="dismiss-results-btn" class="btn btn-primary">Done</button>
                 </div>
